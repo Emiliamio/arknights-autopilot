@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 ASTA - Arknights Sovereign Tactical Autopilot
 Master Unified CLI Entry Point & Commercial Fleet Daemon
@@ -45,7 +45,7 @@ def cmd_status(args):
     accounts = mgr.list_accounts()
     print(f"[+] Total Enrolled Accounts: {len(accounts)}")
     for acc in accounts:
-        print(f"    • [{acc['service_tier']:<7}] {acc['account_id']:<14} | {acc['client_name']:<18} | Status: {acc['current_status']:<12} | Daily Sanity: {acc['daily_sanity_consumed']}")
+        print(f"    • [{acc['service_tier']:<7}] {acc['account_id']:<14} | {acc['client_name']:<18} | Status: {acc['current_status']:<14} | Daily Sanity: {acc['daily_sanity_consumed']}")
 
     runner = MultiInstanceRunner(account_manager=mgr)
     try:
@@ -64,23 +64,25 @@ def cmd_probe(args):
         "2": "probe_phase2.py",
         "3": "probe_phase3.py",
         "4": "probe_phase4.py",
-        "5": "probe_phase5.py"
+        "5": "probe_phase5.py",
+        "copilot": "probe_copilot.py",
+        "6": "probe_copilot.py"
     }
 
     if target in probe_map:
         script = probe_map[target]
-        print(f"[*] Launching Phase {target} Probe ({script})...\n")
+        print(f"[*] Launching Probe ({script})...\n")
         subprocess.run([sys.executable, script])
     elif target == "all":
-        print("[*] Launching ALL 5 Phase Probes sequentially...\n")
-        for k in ["1", "2", "3", "4", "5"]:
+        print("[*] Launching ALL 6 Comprehensive Probes sequentially...\n")
+        for k in ["1", "2", "3", "4", "5", "copilot"]:
             script = probe_map[k]
             res = subprocess.run([sys.executable, script])
             if res.returncode != 0:
                 print(f"[!] Probe {script} failed with code {res.returncode}")
                 break
     else:
-        print(f"[!] Unknown probe target: {target}. Choose from: 1, 2, 3, 4, 5, all")
+        print(f"[!] Unknown probe target: {target}. Choose from: 1, 2, 3, 4, 5, copilot, all")
 
 
 def cmd_test(args):
@@ -116,20 +118,16 @@ def main():
     parser = argparse.ArgumentParser(description="ASTA - Arknights Sovereign Tactical Autopilot")
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
-    # Status
     p_status = subparsers.add_parser("status", help="Inspect accounts and emulator health")
     p_status.set_defaults(func=cmd_status)
 
-    # Probe
-    p_probe = subparsers.add_parser("probe", help="Run Phase 1~5 validation probes")
-    p_probe.add_argument("target", choices=["1", "2", "3", "4", "5", "all"], help="Probe phase number or 'all'")
+    p_probe = subparsers.add_parser("probe", help="Run Phase 1~5 & Copilot validation probes")
+    p_probe.add_argument("target", choices=["1", "2", "3", "4", "5", "copilot", "6", "all"], help="Probe phase or 'all'")
     p_probe.set_defaults(func=cmd_probe)
 
-    # Test
     p_test = subparsers.add_parser("test", help="Run full automated regression tests")
     p_test.set_defaults(func=cmd_test)
 
-    # Daemon
     p_daemon = subparsers.add_parser("daemon", help="Run multi-account automated dispatch daemon")
     p_daemon.add_argument("--cycles", type=int, default=1, help="Max dispatch cycles to run (default: 1)")
     p_daemon.set_defaults(func=cmd_daemon)

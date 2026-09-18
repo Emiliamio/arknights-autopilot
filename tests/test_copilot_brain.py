@@ -90,3 +90,26 @@ def test_copilot_panic_preemption_and_recovery(copilot_env):
     t3 = brain.tick(frame, vision, mapper, humanizer, adb_client=None)
     assert t3["action_taken"] == "COPILOT_DEPLOY_芬"
     assert brain.current_action_idx == 2
+def test_copilot_omitted_location_auto_resolved(copilot_env):
+    t_map, plan, brain, mapper, humanizer, vision = copilot_env
+    brain.deployed_operators["克洛丝"] = (6, 0)
+
+    # Action has location [0, 0]
+    skill_action = plan.actions[3]  # Skill 克洛丝
+    assert skill_action.col == 0 and skill_action.row == 0
+
+    frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    h, w = 1080, 1920
+    sx1, sy1 = int(vision.ROI_NORMS["speed_toggle"][0] * w), int(vision.ROI_NORMS["speed_toggle"][1] * h)
+    frame[sy1:sy1 + 40, sx1:sx1 + 40] = 150
+    cx1, cy1 = int(vision.ROI_NORMS["cost"][0] * w), int(vision.ROI_NORMS["cost"][1] * h)
+    cv2.putText(frame, "20", (cx1 + 10, cy1 + 55), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (255, 255, 255), 3)
+    frame[20:70, 1820:1880] = 100
+
+    # Advance current action to Action 3 (Skill)
+    brain.current_action_idx = 3
+    brain.kill_count = (10, 35)
+
+    res = brain.tick(frame, vision, mapper, humanizer, adb_client=None)
+    assert res["action_taken"] == "COPILOT_SKILL_克洛丝"
+    assert skill_action.status == "EXECUTED"

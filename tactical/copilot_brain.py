@@ -25,6 +25,7 @@ class CopilotBrain:
     """
     Dual-Track Arbiter for executing community MAA Copilot JSON plans:
     - Track A (Main Plan): Sequentially steps through MAA actions (Deploy, Skill, Retreat).
+      Maintains internal registry of deployed operator positions to auto-resolve omitted skill/retreat coordinates.
     - Track B (Panic Sentry): Preemptively intercepts leaks with 0.37ms PanicDaemon if front-line falls!
     """
 
@@ -40,6 +41,9 @@ class CopilotBrain:
         self.threat_monitor = ThreatMonitor(tactical_map)
         self.panic_daemon = PanicDaemon(tactical_map)
 
+        # Tracks deployed named operators on the field: { "芬": (col, row), "克洛丝": (col, row) }
+        self.deployed_operators: Dict[str, Tuple[int, int]] = {}
+
         self.last_dp: int = 0
         self.kill_count: Tuple[int, int] = (0, 0)
         self.ticks_count: int = 0
@@ -54,6 +58,31 @@ class CopilotBrain:
         if self.current_action_idx < len(self.plan.actions):
             return self.plan.actions[self.current_action_idx]
         return None
+
+    def resolve_operator_slot(self, operator_name: str, cards: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Resolves the best hand card slot matching the action operator name:
+        1. Checks index in plan.opers matching operator_name;
+        2. If that slot is ready, returns it;
+        3. Fallback: returns the first available ready card slot.
+        """
+        ready_cards = [c for c in cards if c.get("is_ready", False)]
+        if not ready_cards:
+            return None
+
+        # Check matching index in plan.opers
+        matched_idx = None
+        for idx, op in enumerate(self.plan.opers):
+            if op.get("name") == operator_name:
+                matched_idx = idx
+                break
+
+        if matched_idx is not None:
+            for c in ready_cards:
+                if c.get("slot_index") == matched_idx:
+                    return c
+
+        return ready_cards[0]
 
     def tick(
         self,
@@ -130,11 +159,9 @@ class CopilotBrain:
         # 4. PRIORITY 2: MAIN TRACK COPILOT EXECUTION
         action = self.get_current_action()
         if action:
-            # Check readiness criteria: DP >= min_costs and Kills >= min_kills
             dp_satisfied = (self.last_dp >= action.min_costs)
             kills_satisfied = (self.kill_count[0] >= action.min_kills)
 
-            # Watchdog timeout check
             now = time.time()
             if (now - self.action_start_time) > self.watchdog_timeout_sec and not (dp_satisfied and kills_satisfied):
                 logger.warning(f"Action #{action.step_index} timed out ({self.watchdog_timeout_sec}s). Force bypassing...")
@@ -156,9 +183,7 @@ class CopilotBrain:
                     self.action_start_time = now
 
                 elif action.action_type == CopilotActionType.DEPLOY:
-                    # Find matching ready card slot
-                    ready_cards = [c for c in cards if c.get("is_ready", False)]
-                    slot_to_use = ready_cards[0] if ready_cards else None
+                    slot_to_use = self.resolve_operator_slot(action.name, cards)
 
                     if slot_to_use:
                         card_x, card_y = slot_to_use["center"]
@@ -171,6 +196,10 @@ class CopilotBrain:
                         if adb_client:
                             adb_client.deploy_operator_gesture(gesture)
 
+                        # Register in deployed named operators registry
+                        if action.name:
+                            self.deployed_operators[action.name] = (action.col, action.row)
+
                         # Register ground blocker if tile is walkable ground
                         if self.map.is_deployable_ground(action.row, action.col):
                             self.panic_daemon.register_blocker(action.col, action.row)
@@ -182,10 +211,18 @@ class CopilotBrain:
                         action_details = action.to_dict()
 
                 elif action.action_type == CopilotActionType.SKILL:
-                    # Tap target tile to activate operator skill
-                    target_x, target_y = mapper.get_tile_center(action.col, action.row)
+                    # Auto-resolve operator location if location is omitted [0, 0]
+                    col, row = action.col, action.row
+                    if col == 0 and row == 0 and action.name in self.deployed_operators:
+                        col, row = self.deployed_operators[action.name]
+
+                    target_x, target_y = mapper.get_tile_center(col, row)
                     if adb_client:
+                        # Tap operator to open skill menu, then tap skill icon above
                         adb_client.tap(target_x, target_y)
+                        time.sleep(0.12)
+                        adb_client.tap(target_x, target_y - 60)
+
                     action.status = "EXECUTED"
                     self.current_action_idx += 1
                     self.action_start_time = now
@@ -193,13 +230,20 @@ class CopilotBrain:
                     action_details = action.to_dict()
 
                 elif action.action_type == CopilotActionType.RETREAT:
-                    # Tap operator to open retreat menu, then tap retreat button
-                    target_x, target_y = mapper.get_tile_center(action.col, action.row)
+                    col, row = action.col, action.row
+                    if col == 0 and row == 0 and action.name in self.deployed_operators:
+                        col, row = self.deployed_operators[action.name]
+
+                    target_x, target_y = mapper.get_tile_center(col, row)
                     if adb_client:
                         adb_client.tap(target_x, target_y)
-                        time.sleep(0.1)
-                        adb_client.tap(target_x - 60, target_y - 80)  # Retreat button offset
-                    self.panic_daemon.unregister_blocker(action.col, action.row)
+                        time.sleep(0.12)
+                        adb_client.tap(target_x - 60, target_y - 80)
+
+                    self.panic_daemon.unregister_blocker(col, row)
+                    if action.name in self.deployed_operators:
+                        del self.deployed_operators[action.name]
+
                     action.status = "EXECUTED"
                     self.current_action_idx += 1
                     self.action_start_time = now

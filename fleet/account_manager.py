@@ -1,7 +1,7 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 ASTA - Arknights Sovereign Tactical Autopilot
-Fleet Account Manager & SQLite State Machine
+Fleet Account Manager & SQLite State Machine (Thread-Safe with Atomic Checkout)
 Author: Emiliamio <mio2110767128@163.com>
 """
 
@@ -20,6 +20,7 @@ class AccountManager:
     Industrial SQLite asset manager for commercial proxy-farming accounts.
     Features:
     - WAL journal mode for concurrent multi-instance access.
+    - Atomic account checkout to prevent multi-instance double-dispatch race conditions.
     - Priority-based queue dispatching (SVIP > MONTHLY > DAILY).
     - Lifecycle status transitions (IDLE, QUEUED, RUNNING, SANITY_EMPTY, CAPTCHA_LOCKED).
     - Daily sanity reset scheduler for multi-day fleet automation.
@@ -39,10 +40,11 @@ class AccountManager:
 
     def _get_connection(self) -> sqlite3.Connection:
         """Creates a connection with row factory and WAL mode enabled."""
-        conn = sqlite3.connect(self.db_path, timeout=10.0)
+        conn = sqlite3.connect(self.db_path, timeout=15.0)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA busy_timeout=10000;")
         return conn
 
     def _init_db(self) -> None:
@@ -134,14 +136,14 @@ class AccountManager:
 
     def reset_daily_status(self) -> int:
         """
-        Resets accounts with status 'SANITY_EMPTY' back to 'IDLE' and zeroes daily sanity
+        Resets accounts with status 'SANITY_EMPTY' or 'COMPLETED' back to 'IDLE' and zeroes daily sanity
         for the new scheduled day.
         """
         with self._get_connection() as conn:
             cur = conn.execute("""
             UPDATE client_accounts
             SET current_status = 'IDLE', daily_sanity_consumed = 0
-            WHERE current_status IN ('SANITY_EMPTY', 'COMPLETED');
+            WHERE current_status IN ('SANITY_EMPTY', 'COMPLETED', 'RUNNING');
             """)
             conn.commit()
             return cur.rowcount
@@ -197,19 +199,22 @@ class AccountManager:
                 """, (new_status, now, account_id))
             conn.commit()
 
-    def get_next_dispatchable_account(self) -> Optional[Dict[str, Any]]:
+    def get_next_dispatchable_account(self, mark_as_running: bool = False) -> Optional[Dict[str, Any]]:
         """
-        Picks the highest priority dispatchable account:
-        Filters accounts with status in ('IDLE', 'QUEUED').
-        Orders by Tier priority DESC (SVIP > MONTHLY > DAILY), then last_run_time ASC (oldest first).
+        Picks the highest priority dispatchable account atomically.
+        Filters accounts with status 'IDLE'.
+        If mark_as_running=True, transitions status to 'RUNNING' inside the same transaction
+        to guarantee race-condition immunity across concurrent worker threads.
         """
         with self._get_connection() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
             cur = conn.execute("""
             SELECT * FROM client_accounts
-            WHERE current_status IN ('IDLE', 'QUEUED')
+            WHERE current_status = 'IDLE'
             """)
             rows = cur.fetchall()
             if not rows:
+                conn.commit()
                 return None
 
             accounts = []
@@ -221,7 +226,20 @@ class AccountManager:
                 accounts.append((tier_weight, last_run, item))
 
             accounts.sort(key=lambda x: (-x[0], x[1]))
-            return accounts[0][2]
+            selected = accounts[0][2]
+
+            if mark_as_running:
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                conn.execute("""
+                UPDATE client_accounts
+                SET current_status = 'RUNNING', last_run_time = ?
+                WHERE account_id = ?;
+                """, (now, selected["account_id"]))
+                selected["current_status"] = "RUNNING"
+                selected["last_run_time"] = now
+
+            conn.commit()
+            return selected
 
     def record_task_run(
         self,

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Unit tests for AccountManager & Priority Queue
 Author: Emiliamio <mio2110767128@163.com>
@@ -36,19 +36,16 @@ def test_priority_queue_svip_first(temp_account_mgr):
     temp_account_mgr.add_or_update_account("SVIP_1", "保姆级客户C", service_tier="SVIP")
 
     # Dispatch #1: Must pick SVIP
-    p1 = temp_account_mgr.get_next_dispatchable_account()
+    p1 = temp_account_mgr.get_next_dispatchable_account(mark_as_running=True)
     assert p1["account_id"] == "SVIP_1"
-    temp_account_mgr.update_status("SVIP_1", "RUNNING")
 
     # Dispatch #2: Must pick MONTHLY
-    p2 = temp_account_mgr.get_next_dispatchable_account()
+    p2 = temp_account_mgr.get_next_dispatchable_account(mark_as_running=True)
     assert p2["account_id"] == "MONTHLY_1"
-    temp_account_mgr.update_status("MONTHLY_1", "RUNNING")
 
     # Dispatch #3: Must pick DAILY
-    p3 = temp_account_mgr.get_next_dispatchable_account()
+    p3 = temp_account_mgr.get_next_dispatchable_account(mark_as_running=True)
     assert p3["account_id"] == "DAILY_1"
-    temp_account_mgr.update_status("DAILY_1", "RUNNING")
 
     # No more idle accounts
     assert temp_account_mgr.get_next_dispatchable_account() is None
@@ -87,3 +84,17 @@ def test_task_run_logging(temp_account_mgr):
 
     acc = temp_account_mgr.get_account("ACC_RUN")
     assert acc["daily_sanity_consumed"] == 120
+
+
+def test_atomic_account_checkout(temp_account_mgr):
+    temp_account_mgr.add_or_update_account("CONCUR_1", "高并发客户1", service_tier="SVIP")
+
+    # First checkout with mark_as_running=True
+    acc1 = temp_account_mgr.get_next_dispatchable_account(mark_as_running=True)
+    assert acc1 is not None
+    assert acc1["account_id"] == "CONCUR_1"
+    assert acc1["current_status"] == "RUNNING"
+
+    # Second immediate checkout should see no available IDLE accounts
+    acc2 = temp_account_mgr.get_next_dispatchable_account(mark_as_running=True)
+    assert acc2 is None, "Atomic checkout must prevent double-dispatch!"
