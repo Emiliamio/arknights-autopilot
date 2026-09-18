@@ -1,4 +1,4 @@
-﻿# Local Antigravity Junctions (DO NOT TRACK)
+# Local Antigravity Junctions (DO NOT TRACK)
 .agents/
 tools/
 .memory_index.db
@@ -16,6 +16,9 @@ tools/
 *.db-shm
 *.sqlite
 *.sqlite3
+
+# Live debug frames
+data/live_*.png
 
 # Python Compilation & Caches
 __pycache__/

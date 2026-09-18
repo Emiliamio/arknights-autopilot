@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 ASTA - Arknights Sovereign Tactical Autopilot
 In-Combat Vision Perception Engine (RapidOCR & ROI Extraction)
@@ -21,7 +21,7 @@ except ImportError:
 class BattleState(IntEnum):
     """Lifecycle states of the combat view."""
     UNKNOWN = 0
-    PRE_BATTLE = 1        # Squad formation or 'Start Action' screen
+    PRE_BATTLE = 1        # Stage overview (Blue Start) or Squad confirmation (Red Start)
     IN_BATTLE = 2         # Active combat (DP active, enemies spawning)
     VICTORY = 3           # 3-star clear / Mission Accomplished screen
     DEFEAT = 4            # Mission Failed screen
@@ -93,13 +93,11 @@ class VisionEngine:
             except Exception:
                 pass
 
-        # Concatenate all separated digit fragments to avoid kerning split bug
         digit_fragments = re.findall(r"\d+", extracted_text)
         if digit_fragments:
             merged_str = "".join(digit_fragments)
             try:
                 val = int(merged_str)
-                # If merged string has more than 2 digits (e.g. noise like 100), take last 2 digits
                 if val > 99:
                     val = int(merged_str[-2:])
                 if 0 <= val <= 99:
@@ -143,15 +141,16 @@ class VisionEngine:
         crop = self.get_roi_crop(frame, "speed_toggle")
         if crop.size == 0:
             return False
-        # When 2x speed is active in Arknights, the button has higher blue/white brightness
         mean_b = float(np.mean(crop[:, :, 0]))
         mean_g = float(np.mean(crop[:, :, 1]))
         mean_r = float(np.mean(crop[:, :, 2]))
-        # 2x indicator glowing has average brightness > 45
         return (mean_b + mean_g + mean_r) / 3.0 > 45.0
 
     def detect_battle_state(self, frame: np.ndarray) -> BattleState:
-        """Classifies current visual state into BattleState enum."""
+        """
+        Classifies current visual state into BattleState enum.
+        Priority: VICTORY / DEFEAT > PRE_BATTLE > IN_BATTLE.
+        """
         h, w = frame.shape[:2]
 
         # 1. Check Victory / Defeat center banner (Highest Priority)
@@ -168,7 +167,28 @@ class VisionEngine:
             except Exception:
                 pass
 
-        # 2. Check In-Battle markers (Cost Counter + Pause button existence)
+        # 2. Check Pre-Battle markers (Start Action button at bottom right)
+        # MUST BE CHECKED BEFORE IN_BATTLE to prevent sanity cost (-10) being misread as in-battle DP!
+        br_crop = frame[int(h * 0.85):, int(w * 0.70):]
+        if br_crop.size > 0:
+            if self.ocr:
+                try:
+                    ocr_res, _ = self.ocr(br_crop)
+                    if ocr_res:
+                        t_concat = " ".join(r[1] for r in ocr_res)
+                        if any(k in t_concat for k in ["开始行动", "START", "代理指挥", "演习"]):
+                            return BattleState.PRE_BATTLE
+                except Exception:
+                    pass
+
+            # Color heuristic: Red button (Screen 2) or Blue/Cyan button (Screen 1)
+            red_mask = (br_crop[:, :, 2] > 140) & (br_crop[:, :, 0] < 80) & (br_crop[:, :, 1] < 80)
+            cyan_mask = (br_crop[:, :, 0] > 130) & (br_crop[:, :, 1] > 90) & (br_crop[:, :, 2] < 90)
+            btn_ratio = np.sum(red_mask | cyan_mask) / float(br_crop.shape[0] * br_crop.shape[1])
+            if btn_ratio > 0.04:
+                return BattleState.PRE_BATTLE
+
+        # 3. Check In-Battle markers (Active pause button + DP counter)
         pause_crop = self.get_roi_crop(frame, "pause_btn")
         if pause_crop.size > 0 and float(np.mean(pause_crop)) > 15.0:
             cost_val = self.read_cost(frame)
@@ -180,14 +200,6 @@ class VisionEngine:
             cost_val = self.read_cost(frame)
             if cost_val is not None:
                 return BattleState.IN_BATTLE
-
-        # 3. Check Pre-Battle markers (Start Action red button in bottom right)
-        br_crop = frame[int(h * 0.85):, int(w * 0.80):]
-        if br_crop.size > 0:
-            red_mask = (br_crop[:, :, 2] > 140) & (br_crop[:, :, 0] < 80) & (br_crop[:, :, 1] < 80)
-            red_ratio = np.sum(red_mask) / float(br_crop.shape[0] * br_crop.shape[1])
-            if red_ratio > 0.08:
-                return BattleState.PRE_BATTLE
 
         return BattleState.UNKNOWN
 
