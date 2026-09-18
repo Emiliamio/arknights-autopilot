@@ -1,0 +1,38 @@
+﻿# ==============================================================================
+# ASTA - Arknights Sovereign Tactical Autopilot Configuration
+# Author: Emiliamio <mio2110767128@163.com>
+# ==============================================================================
+
+emulator:
+  type: "mumu12"
+  mumu_manager_path: "D:\\mumu模拟器\\MuMu Player 12\\nx_main\\MuMuManager.exe"
+  adb_path: "D:\\mumu模拟器\\MuMu Player 12\\nx_device\\12.0\\shell\\adb.exe"
+  default_instance_index: 0
+  instance_name: "明日方舟"
+  target_host: "127.0.0.1"
+  default_ports:
+    - 16384
+    - 16416
+    - 7555
+    - 5555
+    - 5557
+  auto_launch: true
+  launch_timeout_sec: 60
+
+screencap:
+  preferred_method: "auto"  # Options: auto (adbutils -> raw -> png), adbutils, raw, png
+  target_resolution: [1920, 1080]
+  enforce_orientation: "landscape"
+
+humanizer:
+  enable_jitter: true
+  jitter_sigma: 2.5
+  max_jitter_radius: 8.0
+  touch_down_duration_ms: [65, 110]
+  swipe_duration_ms: [250, 400]
+  bezier_steps: 18
+  use_motionevent: true
+
+fleet:
+  db_path: "data/accounts.db"
+  max_concurrent_instances: 3

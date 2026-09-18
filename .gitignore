@@ -1,0 +1,43 @@
+﻿# Local Antigravity Junctions (DO NOT TRACK)
+.agents/
+tools/
+.memory_index.db
+
+# Environment & Secrets (STRICTLY CONFIDENTIAL)
+.env
+.env.*
+*.key
+*.pem
+*.pfx
+
+# Databases (LOCAL ONLY)
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Python Compilation & Caches
+__pycache__/
+*.py[cod]
+*.class
+*.so
+build/
+dist/
+*.egg-info/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Testing & Quality
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local & Temporary Files
+.tmp/
+*.log
+Thumbs.db
+Desktop.ini
