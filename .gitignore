@@ -19,6 +19,8 @@ tools/
 
 # Live debug frames
 data/live_*.png
+data/screen_*.png
+data/test_*.png
 
 # Python Compilation & Caches
 __pycache__/

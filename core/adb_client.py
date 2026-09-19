@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 ASTA - Arknights Sovereign Tactical Autopilot
 Industrial ADB Client & MuMu 12 Auto-Daemon
