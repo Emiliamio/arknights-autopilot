@@ -28,7 +28,10 @@ document.addEventListener("DOMContentLoaded", () => {
   fetchAccounts();
   fetchFleet();
   fetchMissions();
-  fetchStagesCatalog();
+  fetchStagesCatalog().then(() => {
+    renderCategoryOptions();
+    searchCloudPlans();
+  });
 });
 
 // 1. SSE Real-time Event Pipeline
@@ -199,47 +202,61 @@ function updateHUD(data) {
   const stage = data.stage || {};
 
   // Mission
-  if (stage.title) {
-    document.getElementById("stageTitle").textContent = `${stage.id} ${stage.title}`;
+  const stageTitleEl = document.getElementById("stageTitle");
+  if (stageTitleEl && stage.title) {
+    stageTitleEl.textContent = `${stage.id} ${stage.title}`;
   }
 
   // DP
   if (tel.dp !== undefined) {
-    document.getElementById("dpVal").textContent = tel.dp;
-    const pct = Math.min(100, Math.round((tel.dp / (tel.max_dp || 99)) * 100));
-    document.getElementById("dpFill").style.width = `${pct}%`;
+    const dpEl = document.getElementById("dpVal");
+    if (dpEl) dpEl.textContent = tel.dp;
+    const dpFill = document.getElementById("dpFill");
+    if (dpFill) {
+      const pct = Math.min(100, Math.round((tel.dp / (tel.max_dp || 99)) * 100));
+      dpFill.style.width = `${pct}%`;
+    }
   }
 
   // Kills
   if (tel.kill_count) {
     const cur = tel.kill_count[0] || 0;
     const tot = tel.kill_count[1] || 28;
-    document.getElementById("killCurrent").textContent = cur;
-    document.getElementById("killTotal").textContent = tot;
-    const killPct = Math.min(100, Math.round((cur / tot) * 100));
-    document.getElementById("killFill").style.width = `${killPct}%`;
+    const curEl = document.getElementById("killCurrent");
+    if (curEl) curEl.textContent = cur;
+    const totEl = document.getElementById("killTotal");
+    if (totEl) totEl.textContent = tot;
+    const killFill = document.getElementById("killFill");
+    if (killFill) {
+      const killPct = Math.min(100, Math.round((cur / tot) * 100));
+      killFill.style.width = `${killPct}%`;
+    }
   }
 
   // States
   if (tel.battle_state) {
-    document.getElementById("battleState").textContent = tel.battle_state;
+    const bs = document.getElementById("battleState");
+    if (bs) bs.textContent = tel.battle_state;
   }
   if (tel.speed_2x !== undefined) {
-    document.getElementById("speed2x").textContent = `2X SPEED: ${tel.speed_2x ? 'ON' : 'OFF'}`;
+    const sp = document.getElementById("speed2x");
+    if (sp) sp.textContent = `2X SPEED: ${tel.speed_2x ? 'ON' : 'OFF'}`;
   }
 
   // Threat Banner
   const banner = document.getElementById("threatBanner");
   const threatText = document.getElementById("threatText");
   const threatDesc = document.getElementById("threatDesc");
-  if (tel.threat_level === "PANIC_LEAK") {
-    banner.className = "threat-banner panic";
-    threatText.textContent = "PANIC_LEAK (0.37ms PREEMPT)";
-    threatDesc.textContent = "探测到敌军逼近蓝门 (<=2格)！应急截停守护进程已抢占触控 I/O！";
-  } else {
-    banner.className = "threat-banner safe";
-    threatText.textContent = "SAFE";
-    threatDesc.textContent = "战场防线稳固，未探测到突破蓝门临界威胁";
+  if (banner && threatText && threatDesc) {
+    if (tel.threat_level === "PANIC_LEAK") {
+      banner.className = "threat-banner panic";
+      threatText.textContent = "PANIC_LEAK (0.37ms PREEMPT)";
+      threatDesc.textContent = "探测到敌军逼近蓝门 (<=2格)！应急截停守护进程已抢占触控 I/O！";
+    } else {
+      banner.className = "threat-banner safe";
+      threatText.textContent = "SAFE";
+      threatDesc.textContent = "战场防线稳固，未探测到突破蓝门临界威胁";
+    }
   }
 
   // Deployed Operators
@@ -932,26 +949,35 @@ async function fetchStagesCatalog() {
 }
 
 function openCloudCopilotModal() {
-  console.log("[ASTA] openCloudCopilotModal triggered");
-  const modal = document.getElementById("cloudCopilotModal");
-  if (modal) {
-    modal.style.display = "flex";
-  } else {
-    console.error("[ASTA] cloudCopilotModal element not found in DOM");
+  console.log("[ASTA] openCloudCopilotModal triggered - focusing stage selector");
+  const panel = document.querySelector(".panel-stage-selector");
+  if (panel) {
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
   }
-
+  const input = document.getElementById("customStageInput");
+  if (input) {
+    input.focus();
+    input.select();
+  }
   if (!stagesCatalog) {
     fetchStagesCatalog().then(() => {
       renderCategoryOptions();
     });
-  } else {
-    renderCategoryOptions();
   }
 }
 
 function closeCloudCopilotModal() {
+  // Modal is now integrated directly into Panel 1 & 2
   const modal = document.getElementById("cloudCopilotModal");
   if (modal) modal.style.display = "none";
+}
+
+function quickSelectStage(stage) {
+  const input = document.getElementById("customStageInput");
+  if (input) input.value = stage;
+  const badge = document.getElementById("selectedStageBadge");
+  if (badge) badge.textContent = `TARGET: ${stage}`;
+  searchCloudPlans();
 }
 
 function renderCategoryOptions() {
@@ -1053,6 +1079,15 @@ function renderCloudPlans(data, stage) {
   if (!listEl) return;
 
   const plans = data.plans || [];
+  const plansBadge = document.getElementById("plansCountBadge");
+  if (plansBadge) {
+    plansBadge.textContent = `${plans.length} PLANS`;
+  }
+  const stageBadge = document.getElementById("selectedStageBadge");
+  if (stageBadge) {
+    stageBadge.textContent = `TARGET: ${stage}`;
+  }
+
   if (statusEl) {
     statusEl.innerHTML = `✅ 成功检索到 <strong>${data.total || plans.length}</strong> 套关于关卡 <strong>[${stage}]</strong> 的战术作业 (耗时: ${data.source || 'PRTS Cloud'})`;
   }
@@ -1155,6 +1190,7 @@ async function autoDispatchBestPlan() {
 // Explicit global window bindings for inline HTML onclick handlers
 window.openCloudCopilotModal = openCloudCopilotModal;
 window.closeCloudCopilotModal = closeCloudCopilotModal;
+window.quickSelectStage = quickSelectStage;
 window.onCategoryChanged = onCategoryChanged;
 window.onChapterChanged = onChapterChanged;
 window.onStageSelectChanged = onStageSelectChanged;
