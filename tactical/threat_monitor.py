@@ -58,8 +58,8 @@ class ThreatMonitor:
     - Symmetrical orientation facing resolution.
     """
 
-    def __init__(self, tactical_map: TacticalMap):
-        self.map = tactical_map
+    def __init__(self, tactical_map: Optional[TacticalMap] = None):
+        self.map = tactical_map or TacticalMap.create_1_7()
         self.pathfinder = AStarPathfinder(tactical_map)
 
     def detect_enemies(

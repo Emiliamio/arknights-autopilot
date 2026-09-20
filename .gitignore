@@ -21,6 +21,7 @@ tools/
 data/live_*.png
 data/screen_*.png
 data/test_*.png
+data/mumu_*.png
 
 # Python Compilation & Caches
 __pycache__/

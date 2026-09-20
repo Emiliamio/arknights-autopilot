@@ -1,0 +1,171 @@
+{
+  "account_id": "EMILIAMIO_MAIN",
+  "updated_at": 1789794976.359701,
+  "operators": [
+    {
+      "name": "德克萨斯",
+      "class": "VANGUARD",
+      "rarity": 5,
+      "damage_type": "PHYSICAL",
+      "can_anti_air": false,
+      "block_count": 2,
+      "cost": 11,
+      "elite": 2,
+      "level": 60
+    },
+    {
+      "name": "桃金娘",
+      "class": "VANGUARD",
+      "rarity": 4,
+      "damage_type": "NONE",
+      "can_anti_air": false,
+      "block_count": 1,
+      "cost": 8,
+      "elite": 1,
+      "level": 40
+    },
+    {
+      "name": "芬",
+      "class": "VANGUARD",
+      "rarity": 3,
+      "damage_type": "PHYSICAL",
+      "can_anti_air": false,
+      "block_count": 2,
+      "cost": 8,
+      "elite": 1,
+      "level": 40
+    },
+    {
+      "name": "能天使",
+      "class": "SNIPER",
+      "rarity": 6,
+      "damage_type": "PHYSICAL",
+      "can_anti_air": true,
+      "block_count": 1,
+      "cost": 12,
+      "elite": 2,
+      "level": 60
+    },
+    {
+      "name": "克洛丝",
+      "class": "SNIPER",
+      "rarity": 3,
+      "damage_type": "PHYSICAL",
+      "can_anti_air": true,
+      "block_count": 1,
+      "cost": 9,
+      "elite": 1,
+      "level": 40
+    },
+    {
+      "name": "艾雅法拉",
+      "class": "CASTER",
+      "rarity": 6,
+      "damage_type": "ARTS",
+      "can_anti_air": true,
+      "block_count": 1,
+      "cost": 19,
+      "elite": 2,
+      "level": 60
+    },
+    {
+      "name": "阿米娅",
+      "class": "CASTER",
+      "rarity": 5,
+      "damage_type": "ARTS",
+      "can_anti_air": true,
+      "block_count": 1,
+      "cost": 18,
+      "elite": 2,
+      "level": 60
+    },
+    {
+      "name": "塞雷娅",
+      "class": "DEFENDER",
+      "rarity": 6,
+      "damage_type": "PHYSICAL",
+      "can_anti_air": false,
+      "block_count": 3,
+      "cost": 18,
+      "elite": 2,
+      "level": 60
+    },
+    {
+      "name": "蛇屠箱",
+      "class": "DEFENDER",
+      "rarity": 4,
+      "damage_type": "PHYSICAL",
+      "can_anti_air": false,
+      "block_count": 4,
+      "cost": 16,
+      "elite": 1,
+      "level": 40
+    },
+    {
+      "name": "闪灵",
+      "class": "MEDIC",
+      "rarity": 6,
+      "damage_type": "HEALING",
+      "can_anti_air": false,
+      "block_count": 1,
+      "cost": 17,
+      "elite": 2,
+      "level": 60
+    },
+    {
+      "name": "安塞尔",
+      "class": "MEDIC",
+      "rarity": 3,
+      "damage_type": "HEALING",
+      "can_anti_air": false,
+      "block_count": 1,
+      "cost": 14,
+      "elite": 1,
+      "level": 40
+    },
+    {
+      "name": "银灰",
+      "class": "GUARD",
+      "rarity": 6,
+      "damage_type": "PHYSICAL",
+      "can_anti_air": true,
+      "block_count": 2,
+      "cost": 18,
+      "elite": 2,
+      "level": 60
+    },
+    {
+      "name": "煌",
+      "class": "GUARD",
+      "rarity": 6,
+      "damage_type": "PHYSICAL",
+      "can_anti_air": false,
+      "block_count": 3,
+      "cost": 22,
+      "elite": 2,
+      "level": 60
+    },
+    {
+      "name": "红",
+      "class": "VANGUARD",
+      "rarity": 4,
+      "damage_type": "PHYSICAL",
+      "can_anti_air": false,
+      "block_count": 1,
+      "cost": 9,
+      "elite": 1,
+      "level": 40
+    },
+    {
+      "name": "砾",
+      "class": "SPECIALIST",
+      "rarity": 4,
+      "damage_type": "PHYSICAL",
+      "can_anti_air": false,
+      "block_count": 1,
+      "cost": 5,
+      "elite": 1,
+      "level": 40
+    }
+  ]
+}

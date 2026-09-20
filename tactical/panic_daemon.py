@@ -23,8 +23,8 @@ class PanicDaemon:
     Preemptively intercepts leaks by deploying emergency reserves within <= 350ms.
     """
 
-    def __init__(self, tactical_map: TacticalMap):
-        self.map = tactical_map
+    def __init__(self, tactical_map: Optional[TacticalMap] = None):
+        self.map = tactical_map or TacticalMap.create_1_7()
         self.active_blockers: Set[Tuple[int, int]] = set()  # (col, row)
         self.intercept_cooldowns: Dict[Tuple[int, int], float] = {}  # (col, row) -> timestamp
         self.cooldown_sec: float = 2.0

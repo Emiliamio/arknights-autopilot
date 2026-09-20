@@ -83,6 +83,31 @@ class ADBClient:
         info = self.get_instance_info()
         return bool(info.get("is_android_started", False))
 
+    def bring_mumu_to_foreground(self):
+        """Brings MuMu 12 window to the front of Windows desktop so the user sees it."""
+        try:
+            ps_script = """
+            $p = Get-Process | Where-Object {($_.ProcessName -like "*MuMu*" -or $_.ProcessName -like "*Nemu*") -and $_.MainWindowHandle -ne 0} | Select-Object -First 1
+            if ($p) {
+                Add-Type @"
+                    using System;
+                    using System.Runtime.InteropServices;
+                    public class Win32 {
+                        [DllImport("user32.dll")]
+                        [return: MarshalAs(UnmanagedType.Bool)]
+                        public static extern bool SetForegroundWindow(IntPtr hWnd);
+                        [DllImport("user32.dll")]
+                        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+                    }
+"@
+                [Win32]::ShowWindow($p.MainWindowHandle, 9)
+                [Win32]::SetForegroundWindow($p.MainWindowHandle)
+            }
+            """
+            subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], timeout=6, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
     def launch_instance(self, wait_timeout: int = 60) -> bool:
         """Launches target MuMu 12 instance via MuMuManager and waits until Android boots."""
         print(f"[*] Launching MuMu 12 instance {self.instance_index} via MuMuManager...")
@@ -126,6 +151,12 @@ class ADBClient:
                 pass
 
         return res
+
+    def shell(self, cmd: str, timeout: int = 15) -> str:
+        """Executes an adb shell command and returns trimmed stdout string."""
+        res = self.run_adb(["shell", cmd], timeout=timeout)
+        out = res.stdout.decode("utf-8", errors="replace") if isinstance(res.stdout, bytes) else str(res.stdout)
+        return out.strip()
 
     def connect(self, auto_launch: bool = True) -> str:
         """

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASTA // PRTS 极星战术态势指挥大屏</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="prts-theme">
+  <!-- Top Navigation Header -->
+  <header class="prts-header">
+    <div class="header-left">
+      <div class="brand-badge">
+        <span class="pulse-dot"></span>
+        <span class="brand-title">ASTA // PRTS TACTICAL COMMAND DASHBOARD</span>
+        <span class="badge-tag">v1.0 LIVE</span>
+      </div>
+      <div class="stage-info">
+        <span class="label">CURRENT MISSION:</span>
+        <span class="value" id="stageTitle">1-7 固源岩圣地 · 空间战术推演</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="meta-item">
+        <span class="label">NODE:</span>
+        <span class="value">AKIYAMA-MIO (127.0.0.1:8848)</span>
+      </div>
+      <div class="meta-item">
+        <span class="label">ARCHITECT:</span>
+        <span class="value">Emiliamio</span>
+      </div>
+      <button class="btn-abort-header" title="立即终止全部正在运行的战斗与推图任务" onclick="triggerEmergencyStop()">🛑 全局紧急停止</button>
+      <div class="connection-status" id="connStatus">
+        <span class="status-indicator online"></span>
+        <span class="status-text">SSE LINK ACTIVE</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Grid Dashboard Container -->
+  <main class="dashboard-grid">
+    
+    <!-- Panel 1: PRTS 战场全息全景视窗 (Canvas) -->
+    <section class="card panel-battlefield">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="icon">⬡</span>
+          <span>01. PRTS 战场全息态势视窗 (HOLOGRAPHIC BATTLEFIELD)</span>
+        </div>
+        <div class="card-controls">
+          <span class="tag-cyan" id="homographyBadge">2.5D HOMOGRAPHY ACTIVE</span>
+          <span class="tag-amber" id="chokeBadge">PRIMARY CHOKE (3, 4)</span>
+        </div>
+      </div>
+      <div class="card-body canvas-wrapper">
+        <canvas id="battlefieldCanvas" width="960" height="480"></canvas>
+        <div class="canvas-legend">
+          <span><span class="dot dot-blue"></span> 蓝门(保护目标)</span>
+          <span><span class="dot dot-red"></span> 红门(敌军出口)</span>
+          <span><span class="dot dot-gold"></span> 黄金堵门点(Choke)</span>
+          <span><span class="dot dot-green"></span> 已部署干员</span>
+          <span><span class="dot dot-stream"></span> A* DAG 网络流</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel 2: 实时战术遥测仪表盘 (Telemetry HUD) -->
+    <section class="card panel-telemetry">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="icon">⬢</span>
+          <span>02. 实时战术遥测 (TACTICAL TELEMETRY)</span>
+        </div>
+        <div class="state-badge-group">
+          <span class="badge-status" id="battleState">IN_BATTLE</span>
+          <span class="badge-speed" id="speed2x">2X SPEED: ON</span>
+        </div>
+      </div>
+      <div class="card-body telemetry-layout">
+        <!-- Threat Level Banner -->
+        <div class="threat-banner safe" id="threatBanner">
+          <div class="threat-title">THREAT LEVEL: <span id="threatText">SAFE</span></div>
+          <div class="threat-desc" id="threatDesc">战场防线稳固，未探测到突破蓝门临界威胁</div>
+        </div>
+
+        <!-- Metric Gauges -->
+        <div class="metrics-row">
+          <div class="metric-box dp-box">
+            <div class="metric-label">DEPLOYMENT POINTS (DP)</div>
+            <div class="metric-value"><span id="dpVal">18</span> <small>/ 99</small></div>
+            <div class="dp-progress-bar">
+              <div class="dp-fill" id="dpFill" style="width: 18%;"></div>
+            </div>
+          </div>
+          <div class="metric-box kills-box">
+            <div class="metric-label">ENEMIES NEUTRALIZED</div>
+            <div class="metric-value"><span id="killCurrent">14</span> <small>/ <span id="killTotal">28</span></small></div>
+            <div class="kill-progress-bar">
+              <div class="kill-fill" id="killFill" style="width: 50%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Deployed Operators Micro-Cards -->
+        <div class="deployed-ops-section">
+          <div class="sub-label">ON-FIELD OPERATORS STATUS:</div>
+          <div class="ops-list" id="operatorsList">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel 3: 商业机队多账号矩阵与任务总控 (Fleet & Missions) -->
+    <section class="card panel-fleet">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="icon">▥</span>
+          <span>03. 商业代肝矩阵与任务总控 (FLEET & MISSIONS)</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="openAccountModal()">+ 录入账户</button>
+          <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="openMissionModal()">+ 布置任务</button>
+          <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="openSquadModal()">🧠 搭配阵容</button>
+          <button class="btn btn-speed" style="padding: 2px 8px; font-size: 10px;" onclick="triggerRunMissions()">▶ 执行待办</button>
+          <button class="btn btn-panic" style="padding: 2px 8px; font-size: 10px;" onclick="triggerEmergencyStop()">🛑 停止执行</button>
+          <span class="tag-cyan" id="accountCountTag">4 ENROLLED</span>
+        </div>
+      </div>
+      <div class="card-body fleet-layout">
+        <div class="accounts-grid" id="accountsList">
+          <!-- Populated from SQLite via API -->
+        </div>
+        <!-- Active Mission Queue -->
+        <div class="mission-queue-bar">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <div class="sub-label" style="margin-bottom: 0;">ACTIVE TASK QUEUE (工单排班):</div>
+            <div class="btn-clear-bar">
+              <button class="btn-tiny btn-delete" onclick="clearMissions('QUEUED')">🗑️ 清空待办</button>
+              <button class="btn-tiny btn-run-single" onclick="clearMissions('FINISHED')">🧹 清理完成</button>
+            </div>
+          </div>
+          <div class="mission-list" id="missionList">
+            <div style="color: #484f58; font-size: 11px;">加载任务工单队列...</div>
+          </div>
+        </div>
+        <div class="mumu-instances-bar">
+          <div class="sub-label">MUMU 12 VM HARDWARE POOL:</div>
+          <div class="mumu-tag-list" id="mumuList">
+            <span class="mumu-tag">VM [0]: 127.0.0.1:16384 (15FPS / 550MB) ● RUNNING</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel 4: 作业执行与应急中枢 (Copilot & Panic Daemon) -->
+    <section class="card panel-copilot">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="icon">▤</span>
+          <span>04. 作业执行与应急救场 (COPILOT & PANIC DAEMON)</span>
+        </div>
+        <span class="tag-amber">DUAL-TRACK AUTONOMY</span>
+      </div>
+      <div class="card-body copilot-layout">
+        <!-- Copilot Steps Timeline -->
+        <div class="copilot-timeline-section">
+          <div class="sub-label">MAA COPILOT TIMELINE: <span id="copilotPlanName">1-7_xiaoran_duo</span></div>
+          <div class="timeline-steps" id="timelineSteps">
+            <!-- Steps dynamic -->
+          </div>
+        </div>
+        <!-- Emergency Fast-Redeploy Reserves -->
+        <div class="panic-daemon-section">
+          <div class="sub-label">PANIC DAEMON 0.37ms FAST-REDEPLOY RESERVES:</div>
+          <div class="emergency-cards" id="emergencyCards">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel 5: 物理反作弊与 I/O 探针 (Anti-Cheat) -->
+    <section class="card panel-anticheat">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="icon">◎</span>
+          <span>05. 物理反作弊与系统负载 (ANTI-CHEAT & I/O)</span>
+        </div>
+        <span class="tag-green">SECURITY SCORE: 99.8%</span>
+      </div>
+      <div class="card-body anticheat-layout">
+        <div class="scatter-container">
+          <canvas id="scatterCanvas" width="180" height="180"></canvas>
+          <div class="scatter-label">2D GAUSSIAN JITTER (R &le; 8.0px)</div>
+        </div>
+        <div class="metrics-col">
+          <div class="anticheat-stat">
+            <span class="stat-name">3-Order Bezier Motion:</span>
+            <span class="stat-val" id="bezierMs">338 ms (Humanized)</span>
+          </div>
+          <div class="anticheat-stat">
+            <span class="stat-name">Zero-Copy ADB Latency:</span>
+            <span class="stat-val" id="adbLatency">170 ms</span>
+          </div>
+          <div class="anticheat-stat">
+            <span class="stat-name">MotionEvent Composite:</span>
+            <span class="stat-val">Atomic Single-Transaction</span>
+          </div>
+          <div class="anticheat-stat">
+            <span class="stat-name">MuMu 12 Low Power:</span>
+            <span class="stat-val">15 FPS / 550 MB RAM</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel 6: 战术人工接管中枢 (Tactical Overrides & Console Log) -->
+    <section class="card panel-overrides">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="icon">⚡</span>
+          <span>06. 战术人工接管中枢 (TACTICAL OVERRIDE & AUDIT)</span>
+        </div>
+        <span class="tag-red">COMMAND OVERRIDE ACTIVE</span>
+      </div>
+      <div class="card-body override-layout">
+        <!-- Control Buttons -->
+        <div class="override-buttons">
+          <button class="btn btn-panic" onclick="sendOverride('PANIC_INTERCEPT')">🚨 紧急空投截停</button>
+          <button class="btn btn-skill" onclick="sendOverride('FORCE_SKILL')">⚡ 决战技全开</button>
+          <button class="btn btn-retreat" onclick="sendOverride('RETREAT')">🔄 战术撤退换防</button>
+          <button class="btn btn-speed" onclick="sendOverride('TOGGLE_2X')">⏩ 切换2x倍速</button>
+          <button class="btn btn-reset" onclick="sendOverride('CLEAR_PANIC')">🟢 复位安全状态</button>
+          <button class="btn btn-panic" onclick="triggerEmergencyStop()">🛑 全局紧急熔断</button>
+        </div>
+        <!-- Real-time Console Log -->
+        <div class="terminal-log-box" id="terminalLog">
+          <!-- Live log items -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal for Squad Synthesizer -->
+  <div id="squadModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card" style="width: 640px; max-height: 85vh; overflow-y: auto;">
+      <div class="modal-header">
+        <span class="modal-title">🧠 纯血博弈 · 关卡自适应编队合成 (SQUAD SYNTHESIS)</span>
+        <button class="close-btn" onclick="closeSquadModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>目标账号 (ACCOUNT):</label>
+            <select id="squadAccSelect" class="form-input">
+              <option value="EMILIAMIO_MAIN">EMILIAMIO_MAIN (总指挥官专属)</option>
+              <option value="TB_SVIP_001">TB_SVIP_001 (淘宝大客户)</option>
+              <option value="TB_VIP_999">TB_VIP_999 (赵老板)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>目标关卡代号 (TARGET STAGE):</label>
+            <input id="squadStageInput" class="form-input" type="text" value="0-4" placeholder="e.g. 0-4, 1-7, LS-5" />
+          </div>
+        </div>
+        <button class="btn btn-panic" style="width: 100%; margin-top: 6px;" onclick="triggerSquadSynthesis()">⚡ 求解关卡克制与最优 12 人阵容</button>
+        <div id="squadSummaryText" style="color: #ffd600; font-size: 11px; font-family: var(--font-mono); margin-top: 10px; display: none;"></div>
+        <div id="squadSlotsGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px;">
+          <!-- 12 slots populated dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-reset" onclick="closeSquadModal()">关闭视窗</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Creating Accounts -->
+  <div id="accountModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title">👤 录入客户游戏账户档案 (ENROLL ACCOUNT)</span>
+        <button class="close-btn" onclick="closeAccountModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>账户识别 ID (ACCOUNT ID):</label>
+          <input id="modalNewAccId" class="form-input" type="text" placeholder="e.g. XY_2026_005, TB_VIP_888" />
+        </div>
+        <div class="form-group">
+          <label>客户备注与昵称 (CLIENT NAME):</label>
+          <input id="modalNewClientName" class="form-input" type="text" placeholder="e.g. 闲鱼大客户_张老板" />
+        </div>
+        <div class="form-group">
+          <label>游戏渠道平台 (SERVER PLATFORM):</label>
+          <select id="modalNewPlatform" class="form-input">
+            <option value="BILIBILI">Bilibili 服 (B服专属)</option>
+            <option value="OFFICIAL">鹰角网络官方服 (官服)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>商业服务等级 (SERVICE TIER):</label>
+          <select id="modalNewTier" class="form-input">
+            <option value="SVIP">SVIP (保姆级代肝 · 最高优先级)</option>
+            <option value="MONTHLY">MONTHLY (月卡代肝 · 每日排班)</option>
+            <option value="DAILY">DAILY (散客零单)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>游戏账号 / 手机号 / 邮箱 (LOGIN CREDENTIAL):</label>
+          <input id="modalNewLoginAcc" class="form-input" type="text" placeholder="用于自动登录的账号" />
+        </div>
+        <div class="form-group">
+          <label>游戏登录密码 (PASSWORD):</label>
+          <input id="modalNewLoginPwd" class="form-input" type="password" placeholder="用于自动登录的密码" />
+        </div>
+        <div class="form-group">
+          <label>绑定虚拟机编号 (ASSIGNED VM):</label>
+          <select id="modalNewVm" class="form-input">
+            <option value="0">VM [0]: 127.0.0.1:16384 (默认主实例)</option>
+            <option value="1">VM [1]: 127.0.0.1:16416 (双开备用实例)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-reset" onclick="closeAccountModal()">取消</button>
+        <button class="btn btn-skill" onclick="submitNewAccount()">立即录入档案</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Assigning Tasks -->
+  <div id="missionModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title">⚡ 布置战术任务 (ASSIGN TACTICAL MISSION)</span>
+        <button class="close-btn" onclick="closeMissionModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>目标账号 (TARGET ACCOUNT):</label>
+          <select id="modalAccSelect" class="form-input">
+            <option value="EMILIAMIO_MAIN">EMILIAMIO_MAIN (Emiliamio 总指挥官专属)</option>
+            <option value="TB_SVIP_001">TB_SVIP_001 (淘宝SVIP大客户_林先生)</option>
+            <option value="XY_MONTHLY_002">XY_MONTHLY_002 (闲鱼月卡客户_王女士)</option>
+            <option value="WX_DAILY_003">WX_DAILY_003 (私域散单客户_陈同学)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>任务类型 (MISSION TYPE):</label>
+          <select id="modalTypeSelect" class="form-input" onchange="toggleMissionTypeFields()">
+            <option value="CAMPAIGN_CLEAR">章节通关巡航 (CAMPAIGN_CLEAR)</option>
+            <option value="ROGUELIKE">集成战略 / 肉鸽自主推演 (ROGUELIKE)</option>
+            <option value="SANITY_FARM">定额刷体力 (SANITY_FARM)</option>
+            <option value="INFRA_ROTATE">基建自动轮换 (INFRA_ROTATE)</option>
+            <option value="DAILY_ROUTINE">每日日常签到 (DAILY_ROUTINE)</option>
+          </select>
+        </div>
+        <div class="form-group" id="themeField" style="display: none;">
+          <label>肉鸽集成战略主题 (ROGUELIKE THEME):</label>
+          <select id="modalThemeSelect" class="form-input">
+            <option value="IS4">探索者的银凇止境 (萨米肉鸽 · IS#4)</option>
+            <option value="IS3">水月与深蓝之树 (水月肉鸽 · IS#3)</option>
+            <option value="IS2">傀影与猩红孤钻 (傀影肉鸽 · IS#2)</option>
+            <option value="IS5">萨卡兹的无终奇语 (萨卡兹肉鸽 · IS#5)</option>
+          </select>
+        </div>
+        <div class="form-group" id="chapterField">
+          <label>目标章节 (TARGET CHAPTER):</label>
+          <select id="modalChapterSelect" class="form-input">
+            <option value="0">第 0 章 · 黑暗时代 (EPISODE 00)</option>
+            <option value="1">第 1 章 · 觉醒 (EPISODE 01)</option>
+            <option value="2">第 2 章 · 呼吸 (EPISODE 02)</option>
+            <option value="3">第 3 章 · 二次呼吸 (EPISODE 03)</option>
+          </select>
+        </div>
+        <div class="form-group" id="stageField" style="display: none;">
+          <label>目标关卡代号 (TARGET STAGE):</label>
+          <input id="modalStageInput" class="form-input" type="text" value="1-7" placeholder="e.g. 1-7, LS-1, CE-5" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-reset" onclick="closeMissionModal()">取消</button>
+        <button class="btn btn-skill" onclick="submitMission()">＋ 建立工单 (加入待办)</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

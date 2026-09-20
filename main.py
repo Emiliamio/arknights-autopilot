@@ -20,6 +20,10 @@ import subprocess
 from fleet.account_manager import AccountManager
 from fleet.multi_instance_runner import MultiInstanceRunner
 from fleet.notifier import FleetNotifier
+from fleet.dashboard import run_dashboard
+from fleet.mission_manager import MissionManager, MissionType, MissionStatus
+from fleet.task_executor import TaskExecutor
+from tactical.campaign_cruiser import CampaignCruiser
 
 
 def print_banner():
@@ -113,6 +117,125 @@ def cmd_daemon(args):
             time.sleep(10)
 
 
+def cmd_live(args):
+    stage = args.stage.lower()
+    print(f"[*] Launching Route A Live In-Game Combat for Stage [{stage}]...")
+    if stage in ("ls-1", "ls1"):
+        import live_combat_loop
+        live_combat_loop.main()
+    else:
+        import live_battle_runner
+        live_battle_runner.run_live_battle()
+
+
+def cmd_squad(args):
+    from tactical.squad_synthesizer import SquadSynthesizer
+    syn = SquadSynthesizer()
+    res = syn.synthesize_squad(account_id=args.account, stage_id=args.stage)
+    print("\n======================================================================")
+    print(f"  🧠 ASTA Optimal Squad Synthesizer Result: [{res['stage_id']}]")
+    print(f"  Account: {res['account_id']} | Operators Selected: {res['total_operators']}")
+    print("======================================================================")
+    for op in res["squad"]:
+        print(f"  Slot #{op['slot']:<2} | [{op['class']:<10}] {op['name']:<6} (★{op['rarity']}) | Cost: {op['cost']:<2} | Score: {op['score']}")
+    print(f"\n[+] Strategy Summary: {res['summary']}\n")
+
+
+def cmd_roster(args):
+    from tactical.roster_inspector import RosterInspector
+    inspector = RosterInspector()
+    roster = inspector.load_roster(account_id=args.account)
+    print(f"\n[+] Account [{args.account}] Owned Operators Roster ({len(roster)} total):")
+    for op in roster:
+        print(f"    • [{op.get('class', 'GUARD'):<10}] {op['name']:<6} (★{op.get('rarity', 4)}) | E{op.get('elite', 1)} Lv.{op.get('level', 40)}")
+
+def cmd_roguelike(args):
+    from tactical.roguelike_brain import RoguelikeBrain, RoguelikeTheme
+    theme_map = {
+        "is4": RoguelikeTheme.IS4_SAMI,
+        "is3": RoguelikeTheme.IS3_MIZUKI,
+        "is2": RoguelikeTheme.IS2_PHANTOM,
+        "is5": RoguelikeTheme.IS5_SARKAZ
+    }
+    theme = theme_map.get(args.theme.lower(), RoguelikeTheme.IS4_SAMI)
+    brain = RoguelikeBrain(theme=theme)
+    res = brain.run_roguelike_exploration(max_floors=args.floors)
+    print(f"\n======================================================================")
+    print(f"  🏆 AlphaRoguelike Run Complete: {res['theme']}")
+    print(f"======================================================================")
+    print(f"  {res['summary']}\n")
+
+def cmd_campaign(args):
+    chapter = args.chapter
+    print(f"[*] Launching Autonomous Chapter Campaign Cruiser for Episode {chapter}...")
+    cruiser = CampaignCruiser()
+    res = cruiser.cruise_chapter(chapter_num=chapter)
+    print(f"[+] Campaign Cruise Completed: {res}")
+
+
+def cmd_task(args):
+    mgr = MissionManager()
+    action = args.task_action
+
+    if action == "add":
+        m = mgr.create_mission(
+            account_id=args.account,
+            mission_type=args.type,
+            target_chapter=args.chapter,
+            target_stage=args.stage
+        )
+        print(f"[+] Mission Created Successfully: {m['mission_id']} [{m['mission_type']}] for Account {m['account_id']}")
+    elif action == "list":
+        missions = mgr.list_missions(status=args.status)
+        print(f"[+] Missions Store ({len(missions)} entries):")
+        for m in missions:
+            print(f"    • [{m['status']:<9}] {m['mission_id']:<24} | Acc: {m['account_id']:<14} | Type: {m['mission_type']:<15} | Progress: {m['progress_info']}")
+    elif action == "delete":
+        success = mgr.delete_mission(args.id)
+        print(f"[+] Mission {args.id} deleted successfully: {success}")
+    elif action == "clear":
+        if args.status == "ALL":
+            count = mgr.clear_missions()
+        elif args.status == "FINISHED":
+            with mgr._get_connection() as conn:
+                cur = conn.execute("DELETE FROM missions WHERE status IN ('COMPLETED', 'FAILED', 'CANCELLED');")
+                count = cur.rowcount
+        else:
+            count = mgr.clear_missions(status=args.status)
+        print(f"[+] Cleared {count} missions ({args.status})")
+    elif action == "stop":
+        from core.abort_controller import AbortController
+        AbortController.trigger_abort("CLI 用户触发全局紧急停止")
+        count = mgr.abort_all_running_missions("CLI 用户触发全局紧急停止")
+        print(f"[+] 🛑 Emergency stop triggered! Aborted {count} running missions.")
+    elif action == "run":
+        print("[*] Launching Master Task Executor Dispatcher...")
+        executor = TaskExecutor(mission_manager=mgr)
+        run_count = 0
+        while True:
+            res = executor.run_worker_cycle()
+            if not res:
+                print("[*] No more QUEUED tasks in mission queue.")
+                break
+            run_count += 1
+            print(f"[+] Mission Execution Cycle #{run_count} Completed: {res}")
+            if args.once:
+                break
+
+
+def cmd_stop(args):
+    from core.abort_controller import AbortController
+    from fleet.mission_manager import MissionManager
+    AbortController.trigger_abort("CLI 用户触发全局紧急停止")
+    mgr = MissionManager()
+    count = mgr.abort_all_running_missions("CLI 用户触发全局紧急停止")
+    print(f"[+] 🛑 EMERGENCY STOP ACTIVATED! Aborted {count} running missions.")
+
+def cmd_dashboard(args):
+    print(f"[*] Launching ASTA PRTS Tactical Command Dashboard on {args.host}:{args.port}...")
+    run_dashboard(host=args.host, port=args.port)
+
+
 def main():
     print_banner()
     parser = argparse.ArgumentParser(description="ASTA - Arknights Sovereign Tactical Autopilot")
@@ -125,12 +248,77 @@ def main():
     p_probe.add_argument("target", choices=["1", "2", "3", "4", "5", "copilot", "6", "all"], help="Probe phase or 'all'")
     p_probe.set_defaults(func=cmd_probe)
 
+    p_live = subparsers.add_parser("live", help="Launch Route A real-game live combat execution on emulator")
+    p_live.add_argument("--stage", default="ls-1", choices=["ls-1", "ls1", "1-7"], help="Target stage (default: ls-1)")
+    p_live.set_defaults(func=cmd_live)
+
+    # Squad Synthesizer CLI
+    p_squad = subparsers.add_parser("squad", help="Intelligently synthesize optimal 12-operator squad for stage")
+    p_squad.add_argument("--account", default="EMILIAMIO_MAIN", help="Account ID")
+    p_squad.add_argument("--stage", default="1-7", help="Target stage ID")
+    p_squad.set_defaults(func=cmd_squad)
+
+    # Roster Inspector CLI
+    p_roster = subparsers.add_parser("roster", help="View or inspect account owned operators roster")
+    p_roster.add_argument("--account", default="EMILIAMIO_MAIN", help="Account ID")
+    p_roster.set_defaults(func=cmd_roster)
+
+    # Roguelike CLI
+    p_roguelike = subparsers.add_parser("roguelike", help="Launch autonomous Integrated Strategies (Roguelike) run")
+    p_roguelike.add_argument("--theme", choices=["is4", "is3", "is2", "is5"], default="is4", help="Theme: is4 (Sami), is3 (Mizuki), is2 (Phantom), is5 (Sarkaz)")
+    p_roguelike.add_argument("--floors", type=int, default=3, help="Max floors to explore (default: 3)")
+    p_roguelike.set_defaults(func=cmd_roguelike)
+
+    p_campaign = subparsers.add_parser("campaign", help="Launch autonomous chapter campaign cruise (e.g. --chapter 0)")
+    p_campaign.add_argument("--chapter", type=int, default=0, help="Target chapter episode number (default: 0)")
+    p_campaign.set_defaults(func=cmd_campaign)
+
+    # Task Orchestration Subcommand
+    p_task = subparsers.add_parser("task", help="Master mission assignment and execution orchestrator")
+    task_subparsers = p_task.add_subparsers(dest="task_action", help="Task action: add | list | run")
+
+    # task add
+    p_t_add = task_subparsers.add_parser("add", help="Add a new mission to the queue")
+    p_t_add.add_argument("--account", default="EMILIAMIO_MAIN", help="Target account ID")
+    p_t_add.add_argument("--type", choices=[MissionType.CAMPAIGN_CLEAR, MissionType.SANITY_FARM, MissionType.INFRA_ROTATE, MissionType.DAILY_ROUTINE, MissionType.ROGUELIKE], default=MissionType.CAMPAIGN_CLEAR, help="Mission type")
+    p_t_add.add_argument("--chapter", type=int, default=0, help="Target chapter (for CAMPAIGN_CLEAR)")
+    p_t_add.add_argument("--stage", default="1-7", help="Target stage (for SANITY_FARM)")
+
+    # task list
+    p_t_list = task_subparsers.add_parser("list", help="List missions")
+    p_t_list.add_argument("--status", choices=[MissionStatus.QUEUED, MissionStatus.RUNNING, MissionStatus.COMPLETED, MissionStatus.FAILED, MissionStatus.CANCELLED], default=None, help="Filter by status")
+
+    # task delete
+    p_t_del = task_subparsers.add_parser("delete", help="Delete a specific mission by ID")
+    p_t_del.add_argument("--id", required=True, help="Target mission ID")
+
+    # task clear
+    p_t_clr = task_subparsers.add_parser("clear", help="Clear missions from queue")
+    p_t_clr.add_argument("--status", choices=["QUEUED", "FINISHED", "ALL"], default="QUEUED", help="Status filter to clear (default: QUEUED)")
+
+    # task stop
+    p_t_stop = task_subparsers.add_parser("stop", help="Emergency stop all running tasks")
+
+    # task run
+    p_t_run = task_subparsers.add_parser("run", help="Run queued missions")
+    p_t_run.add_argument("--once", action="store_true", help="Execute only one mission then exit")
+
+    p_task.set_defaults(func=cmd_task)
+
     p_test = subparsers.add_parser("test", help="Run full automated regression tests")
     p_test.set_defaults(func=cmd_test)
 
     p_daemon = subparsers.add_parser("daemon", help="Run multi-account automated dispatch daemon")
     p_daemon.add_argument("--cycles", type=int, default=1, help="Max dispatch cycles to run (default: 1)")
     p_daemon.set_defaults(func=cmd_daemon)
+
+    p_stop = subparsers.add_parser("stop", help="Global emergency stop for all running tasks and combat loops")
+    p_stop.set_defaults(func=cmd_stop)
+
+    p_dash = subparsers.add_parser("dashboard", help="Launch local PRTS Web Tactical Command Dashboard")
+    p_dash.add_argument("--host", default="127.0.0.1", help="Host address (default: 127.0.0.1)")
+    p_dash.add_argument("--port", type=int, default=8848, help="Port (default: 8848)")
+    p_dash.set_defaults(func=cmd_dashboard)
 
     args = parser.parse_args()
     if not args.command:

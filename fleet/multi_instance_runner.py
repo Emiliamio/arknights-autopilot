@@ -31,13 +31,13 @@ class MultiInstanceRunner:
 
     def __init__(
         self,
-        account_manager: AccountManager,
+        account_manager: Optional[AccountManager] = None,
         notifier: Optional[FleetNotifier] = None,
         mumu_manager_path: str = r"D:\mumu模拟器\MuMu Player 12\nx_main\MuMuManager.exe",
         adb_path: str = r"D:\mumu模拟器\MuMu Player 12\nx_device\12.0\shell\adb.exe",
         max_concurrent: int = 2
     ):
-        self.account_manager = account_manager
+        self.account_manager = account_manager or AccountManager()
         self.notifier = notifier or FleetNotifier()
         self.mumu_manager_path = mumu_manager_path
         self.adb_path = adb_path

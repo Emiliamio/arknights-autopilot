@@ -63,6 +63,8 @@ class AccountManager:
                 daily_sanity_consumed INTEGER DEFAULT 0,
                 expiry_date DATE,
                 notify_webhook TEXT,
+                login_account TEXT,
+                login_password TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
             """)
@@ -92,7 +94,10 @@ class AccountManager:
         platform: str = "OFFICIAL",
         notify_webhook: str = "",
         expiry_date: str = "2026-12-31",
-        force_status: Optional[str] = None
+        force_status: Optional[str] = None,
+        assigned_instance: int = 0,
+        login_account: Optional[str] = None,
+        login_password: Optional[str] = None
     ) -> Dict[str, Any]:
         """Adds or updates a client account in the fleet database."""
         tasks_json = json.dumps(target_tasks or ["1-7_farm", "daily_sanity"])
@@ -105,8 +110,9 @@ class AccountManager:
                 conn.execute("""
                 INSERT INTO client_accounts (
                     account_id, client_name, platform, service_tier,
-                    target_tasks, notify_webhook, expiry_date, current_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    target_tasks, notify_webhook, expiry_date, current_status,
+                    assigned_instance, login_account, login_password
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(account_id) DO UPDATE SET
                     client_name=excluded.client_name,
                     platform=excluded.platform,
@@ -114,22 +120,29 @@ class AccountManager:
                     target_tasks=excluded.target_tasks,
                     notify_webhook=excluded.notify_webhook,
                     expiry_date=excluded.expiry_date,
-                    current_status=excluded.current_status;
-                """, (account_id, client_name, platform, tier, tasks_json, notify_webhook, expiry_date, force_status))
+                    current_status=excluded.current_status,
+                    assigned_instance=excluded.assigned_instance,
+                    login_account=excluded.login_account,
+                    login_password=excluded.login_password;
+                """, (account_id, client_name, platform, tier, tasks_json, notify_webhook, expiry_date, force_status, assigned_instance, login_account, login_password))
             else:
                 conn.execute("""
                 INSERT INTO client_accounts (
                     account_id, client_name, platform, service_tier,
-                    target_tasks, notify_webhook, expiry_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    target_tasks, notify_webhook, expiry_date,
+                    assigned_instance, login_account, login_password
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(account_id) DO UPDATE SET
                     client_name=excluded.client_name,
                     platform=excluded.platform,
                     service_tier=excluded.service_tier,
                     target_tasks=excluded.target_tasks,
                     notify_webhook=excluded.notify_webhook,
-                    expiry_date=excluded.expiry_date;
-                """, (account_id, client_name, platform, tier, tasks_json, notify_webhook, expiry_date))
+                    expiry_date=excluded.expiry_date,
+                    assigned_instance=excluded.assigned_instance,
+                    login_account=excluded.login_account,
+                    login_password=excluded.login_password;
+                """, (account_id, client_name, platform, tier, tasks_json, notify_webhook, expiry_date, assigned_instance, login_account, login_password))
             conn.commit()
 
         return self.get_account(account_id)
@@ -286,3 +299,10 @@ class AccountManager:
                 item["drops_summary"] = json.loads(item["drops_summary"])
                 results.append(item)
             return results
+    def delete_account(self, account_id: str) -> bool:
+        """Deletes account and its logs from the database."""
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM task_run_logs WHERE account_id = ?;", (account_id,))
+            cur = conn.execute("DELETE FROM client_accounts WHERE account_id = ?;", (account_id,))
+            logger.info(f"Deleted account {account_id}")
+            return cur.rowcount > 0
