@@ -10,6 +10,7 @@ import sqlite3
 import json
 import time
 import logging
+from contextlib import contextmanager
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
@@ -50,8 +51,24 @@ class MissionManager:
         conn.execute("PRAGMA synchronous = NORMAL;")
         return conn
 
+    @contextmanager
+    def _connection(self):
+        """Context manager yielding connection, auto-committing, and strictly closing."""
+        conn = self._get_connection()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
+        finally:
+            conn.close()
+
     def _init_db(self):
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS missions (
                     mission_id TEXT PRIMARY KEY,
@@ -92,7 +109,7 @@ class MissionManager:
             mission_id = f"TASK_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}_{mission_type[:4]}"
 
         params_json = json.dumps(params or {}, ensure_ascii=False)
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             conn.execute("""
                 INSERT INTO missions (
                     mission_id, account_id, mission_type, target_chapter,
@@ -106,7 +123,7 @@ class MissionManager:
         return self.get_mission(mission_id)
 
     def get_mission(self, mission_id: str) -> Optional[Dict[str, Any]]:
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM missions WHERE mission_id = ?", (mission_id,))
             row = cursor.fetchone()
@@ -135,7 +152,7 @@ class MissionManager:
         query += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
 
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute(query, params)
             rows = cursor.fetchall()
@@ -148,7 +165,7 @@ class MissionManager:
 
     def checkout_next_queued_mission(self) -> Optional[Dict[str, Any]]:
         """Atomically checkout the oldest QUEUED mission."""
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute("BEGIN IMMEDIATE;")
             cursor.execute("""
@@ -174,14 +191,14 @@ class MissionManager:
         return self.get_mission(mission_id)
 
     def update_progress(self, mission_id: str, progress_info: str):
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             conn.execute("""
                 UPDATE missions SET progress_info = ? WHERE mission_id = ?;
             """, (progress_info, mission_id))
 
     def complete_mission(self, mission_id: str, summary: str):
         now = datetime.now().isoformat()
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             conn.execute("""
                 UPDATE missions
                 SET status = ?, completed_at = ?, result_summary = ?, progress_info = ?
@@ -191,7 +208,7 @@ class MissionManager:
 
     def fail_mission(self, mission_id: str, error_msg: str):
         now = datetime.now().isoformat()
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             conn.execute("""
                 UPDATE missions
                 SET status = ?, completed_at = ?, result_summary = ?, progress_info = ?
@@ -200,21 +217,21 @@ class MissionManager:
         logger.error(f"Mission {mission_id} FAILED: {error_msg}")
 
     def cancel_mission(self, mission_id: str):
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             conn.execute("""
                 UPDATE missions SET status = ?, progress_info = ? WHERE mission_id = ?;
             """, (MissionStatus.CANCELLED, "人工撤回取消", mission_id))
 
     def delete_mission(self, mission_id: str) -> bool:
         """Permanently delete a mission record."""
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cur = conn.execute("DELETE FROM missions WHERE mission_id = ?;", (mission_id,))
             logger.info(f"Deleted mission {mission_id}")
             return cur.rowcount > 0
 
     def clear_missions(self, status: Optional[str] = None) -> int:
         """Clear missions by status or all."""
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             if status:
                 cur = conn.execute("DELETE FROM missions WHERE status = ?;", (status,))
             else:
@@ -224,7 +241,7 @@ class MissionManager:
 
     def checkout_specific_mission(self, mission_id: str) -> Optional[Dict[str, Any]]:
         """Atomically checkout a specific mission by ID."""
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute("BEGIN IMMEDIATE;")
             cursor.execute("SELECT status FROM missions WHERE mission_id = ?;", (mission_id,))
@@ -244,7 +261,7 @@ class MissionManager:
     def abort_all_running_missions(self, reason: str = "用户触发全局紧急停止") -> int:
         """Immediately marks all currently RUNNING missions as CANCELLED."""
         now = datetime.now().isoformat()
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cur = conn.execute("""
                 UPDATE missions
                 SET status = ?, completed_at = ?, result_summary = ?, progress_info = ?

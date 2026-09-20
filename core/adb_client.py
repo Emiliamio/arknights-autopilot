@@ -61,8 +61,39 @@ class ADBClient:
         self.resolution: Optional[Tuple[int, int]] = None
         self._adbutils_device = None
 
+    def _auto_discover_mumu_path(self) -> str:
+        """Self-heals MuMuManager.exe location across common paths or active processes."""
+        candidates = [
+            self.mumu_manager_path,
+            r"D:\mumu模拟器\MuMu Player 12\nx_main\MuMuManager.exe",
+            r"C:\Program Files\Netease\MuMuPlayer-12.0\shell\MuMuManager.exe",
+            r"D:\Program Files\Netease\MuMuPlayer-12.0\shell\MuMuManager.exe",
+            r"C:\Program Files\Netease\MuMuPlayer-12.0\nx_main\MuMuManager.exe",
+            r"D:\Program Files\Netease\MuMuPlayer-12.0\nx_main\MuMuManager.exe"
+        ]
+        for path in candidates:
+            if path and os.path.exists(path):
+                return path
+
+        if sys.platform == "win32":
+            try:
+                cmd = "Get-Process | Where-Object { $_.ProcessName -like '*MuMu*' } | Select-Object -ExpandProperty Path -First 1"
+                res = subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, text=True, timeout=3)
+                proc_path = res.stdout.strip()
+                if proc_path and os.path.exists(proc_path):
+                    dir_name = os.path.dirname(proc_path)
+                    cand = os.path.join(dir_name, "MuMuManager.exe")
+                    if os.path.exists(cand):
+                        return cand
+            except Exception:
+                pass
+
+        return self.mumu_manager_path
+
     def execute_mumu_cmd(self, args: List[str], timeout: int = 15) -> Dict[str, Any]:
         """Executes a command on MuMuManager.exe and parses JSON output."""
+        if not os.path.exists(self.mumu_manager_path):
+            self.mumu_manager_path = self._auto_discover_mumu_path()
         if not os.path.exists(self.mumu_manager_path):
             raise FileNotFoundError(f"MuMuManager.exe not found at: {self.mumu_manager_path}")
 

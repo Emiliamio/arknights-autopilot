@@ -9,6 +9,7 @@ import os
 import sqlite3
 import json
 import logging
+from contextlib import contextmanager
 from typing import List, Tuple, Dict, Any, Optional
 from datetime import datetime
 
@@ -47,9 +48,25 @@ class AccountManager:
         conn.execute("PRAGMA busy_timeout=10000;")
         return conn
 
+    @contextmanager
+    def _connection(self):
+        """Context manager yielding connection, auto-committing, and strictly closing."""
+        conn = self._get_connection()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
+        finally:
+            conn.close()
+
     def _init_db(self) -> None:
         """Initializes schema for client accounts and task run auditing."""
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             conn.execute("""
             CREATE TABLE IF NOT EXISTS client_accounts (
                 account_id TEXT PRIMARY KEY,
@@ -105,7 +122,7 @@ class AccountManager:
         if tier not in self.TIER_PRIORITY:
             tier = "DAILY"
 
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             if force_status:
                 conn.execute("""
                 INSERT INTO client_accounts (
@@ -152,7 +169,7 @@ class AccountManager:
         Resets accounts with status 'SANITY_EMPTY' or 'COMPLETED' back to 'IDLE' and zeroes daily sanity
         for the new scheduled day.
         """
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cur = conn.execute("""
             UPDATE client_accounts
             SET current_status = 'IDLE', daily_sanity_consumed = 0
@@ -163,7 +180,7 @@ class AccountManager:
 
     def get_account(self, account_id: str) -> Optional[Dict[str, Any]]:
         """Retrieves a single client account by ID."""
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cur = conn.execute("SELECT * FROM client_accounts WHERE account_id = ?", (account_id,))
             row = cur.fetchone()
             if not row:
@@ -174,7 +191,7 @@ class AccountManager:
 
     def list_accounts(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
         """Lists accounts, optionally filtered by current_status."""
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             if status:
                 cur = conn.execute("SELECT * FROM client_accounts WHERE current_status = ? ORDER BY created_at ASC", (status,))
             else:
@@ -196,7 +213,7 @@ class AccountManager:
         if new_status not in valid_statuses:
             raise ValueError(f"Invalid status '{new_status}', must be one of {valid_statuses}")
 
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             if instance_idx is not None:
                 conn.execute("""
@@ -219,7 +236,7 @@ class AccountManager:
         If mark_as_running=True, transitions status to 'RUNNING' inside the same transaction
         to guarantee race-condition immunity across concurrent worker threads.
         """
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             conn.execute("BEGIN IMMEDIATE;")
             cur = conn.execute("""
             SELECT * FROM client_accounts
@@ -267,7 +284,7 @@ class AccountManager:
     ) -> int:
         """Records a completed run in task_run_logs and updates daily sanity counter."""
         drops_json = json.dumps(drops, ensure_ascii=False)
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cur = conn.execute("""
             INSERT INTO task_run_logs (
                 account_id, task_name, runs_completed, drops_summary,
@@ -286,7 +303,7 @@ class AccountManager:
 
     def get_run_logs(self, account_id: str) -> List[Dict[str, Any]]:
         """Retrieves audit run history for an account."""
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cur = conn.execute("""
             SELECT * FROM task_run_logs
             WHERE account_id = ?
@@ -301,7 +318,7 @@ class AccountManager:
             return results
     def delete_account(self, account_id: str) -> bool:
         """Deletes account and its logs from the database."""
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             conn.execute("DELETE FROM task_run_logs WHERE account_id = ?;", (account_id,))
             cur = conn.execute("DELETE FROM client_accounts WHERE account_id = ?;", (account_id,))
             logger.info(f"Deleted account {account_id}")

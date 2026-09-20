@@ -222,10 +222,25 @@ class UniversalCombatPilot:
                     logger.info(f"[+] Settlement successfully dismissed at attempt #{attempt + 1}! State: {state.name}")
                     return True
 
-            # Tap safe neutral right-center area to dismiss popups
-            tap_x = 960 if attempt % 2 == 0 else 1120
-            tap_y = 540
-            logger.info(f"[*] Dismiss settlement tap #{attempt + 1} at ({tap_x}, {tap_y})...")
+            # Tap safe neutral right-center area to dismiss popups (dynamically scaled to resolution)
+            res_w, res_h = 1920, 1080
+            res = getattr(self.client, "resolution", None)
+            if isinstance(res, (tuple, list)) and len(res) == 2:
+                try:
+                    res_w, res_h = int(res[0]), int(res[1])
+                except (ValueError, TypeError):
+                    pass
+            elif hasattr(self.client, "get_resolution"):
+                try:
+                    g_res = self.client.get_resolution()
+                    if isinstance(g_res, (tuple, list)) and len(g_res) == 2:
+                        res_w, res_h = int(g_res[0]), int(g_res[1])
+                except Exception:
+                    pass
+
+            tap_x = int(res_w * (0.50 if attempt % 2 == 0 else 0.58))
+            tap_y = int(res_h * 0.50)
+            logger.info(f"[*] Dismiss settlement tap #{attempt + 1} at ({tap_x}, {tap_y}) [Res: {res_w}x{res_h}]...")
             self.client.tap(tap_x, tap_y)
             time.sleep(tap_interval)
 
