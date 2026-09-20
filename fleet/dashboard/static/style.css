@@ -167,14 +167,40 @@ body.prts-theme {
   box-shadow: 0 0 8px var(--accent-red);
 }
 
-/* Dashboard Grid Layout (6 Panels) */
+/* Dashboard Clean Productivity Layout (2 Columns) */
 .dashboard-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: 1.3fr 1fr;
-  grid-template-rows: auto auto auto;
+  grid-template-columns: 1.25fr 1fr;
   gap: 16px;
   padding: 16px 24px;
+  min-height: calc(100vh - 72px);
+  align-items: stretch;
+}
+
+.dashboard-col-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dashboard-col-right {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-col-right .panel-overrides {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.dashboard-col-right .terminal-log-box {
+  flex: 1;
+  height: auto;
+  min-height: 520px;
+  max-height: calc(100vh - 200px);
 }
 
 /* Card Component */

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ASTA // PRTS 极星战术态势指挥大屏</title>
-  <link rel="stylesheet" href="style.css?v=20260920_v4">
+  <link rel="stylesheet" href="style.css?v=20260920_v6">
 </head>
 <body class="prts-theme">
   <!-- Top Navigation Header -->
@@ -37,241 +37,160 @@
     </div>
   </header>
 
-  <!-- Main Grid Dashboard Container -->
+  <!-- Main Grid Dashboard Container (Clean 2-Column Productivity Hub) -->
   <main class="dashboard-grid">
     
-    <!-- Panel 1: 关卡战术决策与云端检索中枢 (Stage Tactical Selector) -->
-    <section class="card panel-stage-selector">
-      <div class="card-header">
-        <div class="card-title">
-          <span class="icon">🌐</span>
-          <span>01. 关卡战术决策与云端检索中枢 (STAGE TACTICAL SELECTOR)</span>
-        </div>
-        <div class="card-controls">
-          <span class="tag-cyan" id="cloudHubStatusBadge">MAA CLOUD HUB ONLINE</span>
-          <span class="tag-amber" id="selectedStageBadge">TARGET: 1-7</span>
-        </div>
-      </div>
-      <div class="card-body" style="display: flex; flex-direction: column; gap: 12px; padding: 16px;">
-        <!-- Account Selection & Quick Category -->
-        <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 12px;">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label>执行账号 (OPERATOR ACCOUNT):</label>
-            <select id="cloudAccSelect" class="form-input">
-              <option value="EMILIAMIO_MAIN">EMILIAMIO_MAIN (总指挥官专属)</option>
-              <option value="TB_SVIP_001">TB_SVIP_001 (淘宝大客户)</option>
-            </select>
+    <!-- Left Column: Operations & Fleet Matrix -->
+    <div class="dashboard-col-left">
+      <!-- Panel 1: 关卡战术决策与调度中枢 (Stage Tactical Selector) -->
+      <section class="card panel-stage-selector">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="icon">🌐</span>
+            <span>01. 关卡战术决策与调度中枢 (STAGE TACTICAL SELECTOR)</span>
           </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label>关卡体系分类 (CATEGORY):</label>
-            <select id="stageCategorySelect" class="form-input" onchange="onCategoryChanged()">
-              <option value="main">主线全战役 (EPISODE 00 ~ 17 绝境/普通全收录)</option>
-              <option value="events">SideStory & 故事集活动 (怀黍离/巴别塔/孤星等15+)</option>
-              <option value="resources">芯片 / 战术物资 / 剿灭作战</option>
-            </select>
+          <div class="card-controls">
+            <span class="tag-cyan" id="cloudHubStatusBadge">MAA CLOUD HUB ONLINE</span>
+            <span class="tag-amber" id="selectedStageBadge">TARGET: 1-7</span>
           </div>
         </div>
-
-        <!-- Cascading Selectors: Chapter/Event -> Stage -->
-        <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 12px;">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label id="chapterSelectLabel">所属章节 / 活动 (CHAPTER / EVENT):</label>
-            <select id="chapterSelect" class="form-input" onchange="onChapterChanged()">
-              <!-- Populated dynamically via /api/stages/catalog -->
-            </select>
-          </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label>选择关卡 (SPECIFIC STAGE):</label>
-            <select id="stageSelect" class="form-input" onchange="onStageSelectChanged()">
-              <!-- Populated dynamically -->
-            </select>
-          </div>
-        </div>
-
-        <!-- Free-text code search & Action Bar -->
-        <div style="display: flex; gap: 10px; align-items: flex-end; background: rgba(0, 229, 255, 0.04); padding: 12px; border-radius: 4px; border: 1px dashed rgba(0, 229, 255, 0.25);">
-          <div class="form-group" style="flex: 1; margin-bottom: 0;">
-            <label style="color: #ffd600;">目标精准关卡代号 (TARGET STAGE CODE):</label>
-            <input id="customStageInput" class="form-input" type="text" value="1-7" placeholder="输入任意关卡代号，如 1-7, 7-18, H12-4, CW-10, BB-8, PR-B-1..." oninput="document.getElementById('selectedStageBadge').textContent='TARGET: '+(this.value.trim().toUpperCase()||'NONE')" />
-          </div>
-          <button class="btn btn-skill" style="height: 36px; padding: 0 16px; white-space: nowrap;" onclick="searchCloudPlans()">🔍 联网检索云端作业</button>
-          <button class="btn btn-panic" style="height: 36px; padding: 0 16px; white-space: nowrap;" onclick="autoDispatchBestPlan()">🚀 一键优选开打</button>
-        </div>
-
-        <!-- Quick stage shortcuts -->
-        <div class="quick-stage-pills" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
-          <span style="color: var(--text-muted); font-size: 11px; font-family: var(--font-mono);">⚡ 快捷热门:</span>
-          <button type="button" class="btn-tiny" onclick="quickSelectStage('1-7')">1-7 (固源岩)</button>
-          <button type="button" class="btn-tiny" onclick="quickSelectStage('CW-10')">CW-10 (孤星)</button>
-          <button type="button" class="btn-tiny" onclick="quickSelectStage('BB-8')">BB-8 (巴别塔)</button>
-          <button type="button" class="btn-tiny" onclick="quickSelectStage('CE-6')">CE-6 (龙门币)</button>
-          <button type="button" class="btn-tiny" onclick="quickSelectStage('AP-5')">AP-5 (红票)</button>
-          <button type="button" class="btn-tiny" onclick="quickSelectStage('PR-B-1')">PR-B-1 (狙术芯片)</button>
-          <button type="button" class="btn-tiny" onclick="quickSelectStage('H12-4')">H12-4 (绝境)</button>
-        </div>
-
-        <!-- Status & telemetry bar -->
-        <div id="cloudSearchStatus" style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); background: rgba(0,0,0,0.3); padding: 8px 10px; border-radius: 3px; border-left: 2px solid var(--accent-cyan);">
-          就绪。已覆盖主线 Episode 00~17 及全活动/物资关卡。点击【🔍 联网检索云端作业】或【🚀 一键优选开打】。
-        </div>
-      </div>
-    </section>
-
-    <!-- Panel 2: 云端高赞作业矩阵 (MAA Cloud Copilot Stream) -->
-    <section class="card panel-plan-stream">
-      <div class="card-header">
-        <div class="card-title">
-          <span class="icon">▥</span>
-          <span>02. 云端高赞作业矩阵 (MAA CLOUD COPILOT STREAM)</span>
-        </div>
-        <div class="card-controls" style="display: flex; gap: 8px; align-items: center;">
-          <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="searchCloudPlans()">🔄 刷新列表</button>
-          <span class="badge-tag" id="plansCountBadge">READY</span>
-        </div>
-      </div>
-      <div class="card-body" style="padding: 12px; display: flex; flex-direction: column; min-height: 340px; max-height: 420px;">
-        <!-- Cards List -->
-        <div id="cloudPlansList" class="cloud-plans-container" style="max-height: none; flex: 1; overflow-y: auto;">
-          <div class="cloud-empty-state">
-            <span class="pulse-dot" style="display:inline-block; margin-right:6px;"></span> 正在载入云端战术作业矩阵...
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Panel 3: 商业机队多账号矩阵与任务总控 (Fleet & Missions) -->
-    <section class="card panel-fleet">
-      <div class="card-header">
-        <div class="card-title">
-          <span class="icon">▥</span>
-          <span>03. 商业代肝矩阵与任务总控 (FLEET & MISSIONS)</span>
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="openAccountModal()">+ 录入账户</button>
-          <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="openMissionModal()">+ 布置任务</button>
-          <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px; background: rgba(0, 229, 255, 0.2); border-color: #00e5ff;" onclick="openCloudCopilotModal()">🌐 云端抄作业</button>
-          <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="openSquadModal()">🧠 搭配阵容</button>
-          <button class="btn btn-speed" style="padding: 2px 8px; font-size: 10px;" onclick="triggerRunMissions()">▶ 执行待办</button>
-          <button class="btn btn-panic" style="padding: 2px 8px; font-size: 10px;" onclick="triggerEmergencyStop()">🛑 停止执行</button>
-          <span class="tag-cyan" id="accountCountTag">4 ENROLLED</span>
-        </div>
-      </div>
-      <div class="card-body fleet-layout">
-        <div class="accounts-grid" id="accountsList">
-          <!-- Populated from SQLite via API -->
-        </div>
-        <!-- Active Mission Queue -->
-        <div class="mission-queue-bar">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <div class="sub-label" style="margin-bottom: 0;">ACTIVE TASK QUEUE (工单排班):</div>
-            <div class="btn-clear-bar">
-              <button class="btn-tiny btn-delete" onclick="clearMissions('QUEUED')">🗑️ 清空待办</button>
-              <button class="btn-tiny btn-run-single" onclick="clearMissions('FINISHED')">🧹 清理完成</button>
+        <div class="card-body" style="display: flex; flex-direction: column; gap: 12px; padding: 16px;">
+          <!-- Account Selection & Quick Category -->
+          <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 12px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>执行账号 (OPERATOR ACCOUNT):</label>
+              <select id="cloudAccSelect" class="form-input">
+                <option value="EMILIAMIO_MAIN">EMILIAMIO_MAIN (总指挥官专属)</option>
+                <option value="TB_SVIP_001">TB_SVIP_001 (淘宝大客户)</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>关卡体系分类 (CATEGORY):</label>
+              <select id="stageCategorySelect" class="form-input" onchange="onCategoryChanged()">
+                <option value="main">主线全战役 (EPISODE 00 ~ 17 绝境/普通全收录)</option>
+                <option value="events">SideStory & 故事集活动 (怀黍离/巴别塔/孤星等15+)</option>
+                <option value="resources">芯片 / 战术物资 / 剿灭作战</option>
+              </select>
             </div>
           </div>
-          <div class="mission-list" id="missionList">
-            <div style="color: #484f58; font-size: 11px;">加载任务工单队列...</div>
-          </div>
-        </div>
-        <div class="mumu-instances-bar">
-          <div class="sub-label">MUMU 12 VM HARDWARE POOL:</div>
-          <div class="mumu-tag-list" id="mumuList">
-            <span class="mumu-tag">VM [0]: 127.0.0.1:16384 (15FPS / 550MB) ● RUNNING</span>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- Panel 4: 作业执行与应急中枢 (Copilot & Panic Daemon) -->
-    <section class="card panel-copilot">
-      <div class="card-header">
-        <div class="card-title">
-          <span class="icon">▤</span>
-          <span>04. 作业执行与应急救场 (COPILOT & PANIC DAEMON)</span>
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <button class="btn-tiny btn-run-single" style="font-size: 10px; padding: 2px 8px;" onclick="openCloudCopilotModal()">🌐 检索云端作业</button>
-          <span class="tag-amber">DUAL-TRACK AUTONOMY</span>
-        </div>
-      </div>
-      <div class="card-body copilot-layout">
-        <!-- Copilot Steps Timeline -->
-        <div class="copilot-timeline-section">
-          <div class="sub-label">MAA COPILOT TIMELINE: <span id="copilotPlanName">1-7_xiaoran_duo</span></div>
-          <div class="timeline-steps" id="timelineSteps">
-            <!-- Steps dynamic -->
+          <!-- Cascading Selectors: Chapter/Event -> Stage -->
+          <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 12px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label id="chapterSelectLabel">所属章节 / 活动 (CHAPTER / EVENT):</label>
+              <select id="chapterSelect" class="form-input" onchange="onChapterChanged()">
+                <!-- Populated dynamically via /api/stages/catalog -->
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>选择关卡 (SPECIFIC STAGE):</label>
+              <select id="stageSelect" class="form-input" onchange="onStageSelectChanged()">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
           </div>
-        </div>
-        <!-- Emergency Fast-Redeploy Reserves -->
-        <div class="panic-daemon-section">
-          <div class="sub-label">PANIC DAEMON 0.37ms FAST-REDEPLOY RESERVES:</div>
-          <div class="emergency-cards" id="emergencyCards">
-            <!-- Populated dynamically -->
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- Panel 5: 物理反作弊与 I/O 探针 (Anti-Cheat) -->
-    <section class="card panel-anticheat">
-      <div class="card-header">
-        <div class="card-title">
-          <span class="icon">◎</span>
-          <span>05. 物理反作弊与系统负载 (ANTI-CHEAT & I/O)</span>
-        </div>
-        <span class="tag-green">SECURITY SCORE: 99.8%</span>
-      </div>
-      <div class="card-body anticheat-layout">
-        <div class="scatter-container">
-          <canvas id="scatterCanvas" width="180" height="180"></canvas>
-          <div class="scatter-label">2D GAUSSIAN JITTER (R &le; 8.0px)</div>
-        </div>
-        <div class="metrics-col">
-          <div class="anticheat-stat">
-            <span class="stat-name">3-Order Bezier Motion:</span>
-            <span class="stat-val" id="bezierMs">338 ms (Humanized)</span>
+          <!-- Free-text code search & Action Bar -->
+          <div style="display: flex; gap: 10px; align-items: flex-end; background: rgba(0, 229, 255, 0.04); padding: 12px; border-radius: 4px; border: 1px dashed rgba(0, 229, 255, 0.25);">
+            <div class="form-group" style="flex: 1; margin-bottom: 0;">
+              <label style="color: #ffd600;">目标精准关卡代号 (TARGET STAGE CODE):</label>
+              <input id="customStageInput" class="form-input" type="text" value="1-7" placeholder="输入任意关卡代号，如 1-7, 7-18, H12-4, CW-10, BB-8, PR-B-1..." oninput="document.getElementById('selectedStageBadge').textContent='TARGET: '+(this.value.trim().toUpperCase()||'NONE')" />
+            </div>
+            <button class="btn btn-panic" style="height: 38px; padding: 0 20px; font-size: 13px; font-weight: 700; white-space: nowrap; box-shadow: 0 0 15px rgba(255, 23, 68, 0.5);" onclick="autoDispatchBestPlan()">🚀 智能优选一键开打</button>
           </div>
-          <div class="anticheat-stat">
-            <span class="stat-name">Zero-Copy ADB Latency:</span>
-            <span class="stat-val" id="adbLatency">170 ms</span>
-          </div>
-          <div class="anticheat-stat">
-            <span class="stat-name">MotionEvent Composite:</span>
-            <span class="stat-val">Atomic Single-Transaction</span>
-          </div>
-          <div class="anticheat-stat">
-            <span class="stat-name">MuMu 12 Low Power:</span>
-            <span class="stat-val">15 FPS / 550 MB RAM</span>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- Panel 6: 战术人工接管中枢 (Tactical Overrides & Console Log) -->
-    <section class="card panel-overrides">
-      <div class="card-header">
-        <div class="card-title">
-          <span class="icon">⚡</span>
-          <span>06. 战术人工接管中枢 (TACTICAL OVERRIDE & AUDIT)</span>
+          <!-- Quick stage shortcuts -->
+          <div class="quick-stage-pills" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+            <span style="color: var(--text-muted); font-size: 11px; font-family: var(--font-mono);">⚡ 快捷热门:</span>
+            <button type="button" class="btn-tiny" onclick="quickSelectStage('1-7')">1-7 (固源岩)</button>
+            <button type="button" class="btn-tiny" onclick="quickSelectStage('CW-10')">CW-10 (孤星)</button>
+            <button type="button" class="btn-tiny" onclick="quickSelectStage('BB-8')">BB-8 (巴别塔)</button>
+            <button type="button" class="btn-tiny" onclick="quickSelectStage('CE-6')">CE-6 (龙门币)</button>
+            <button type="button" class="btn-tiny" onclick="quickSelectStage('AP-5')">AP-5 (红票)</button>
+            <button type="button" class="btn-tiny" onclick="quickSelectStage('PR-B-1')">PR-B-1 (狙术芯片)</button>
+            <button type="button" class="btn-tiny" onclick="quickSelectStage('H12-4')">H12-4 (绝境)</button>
+          </div>
+
+          <!-- Status & telemetry bar -->
+          <div id="cloudSearchStatus" style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); background: rgba(0,0,0,0.3); padding: 8px 10px; border-radius: 3px; border-left: 2px solid var(--accent-cyan);">
+            就绪。已覆盖主线 Episode 00~17 及全活动/物资关卡。点选关卡后点击【🚀 智能优选一键开打】即可自动抓取全网高赞作业实机通关。
+          </div>
         </div>
-        <span class="tag-red">COMMAND OVERRIDE ACTIVE</span>
-      </div>
-      <div class="card-body override-layout">
-        <!-- Control Buttons -->
-        <div class="override-buttons">
-          <button class="btn btn-panic" onclick="sendOverride('PANIC_INTERCEPT')">🚨 紧急空投截停</button>
-          <button class="btn btn-skill" onclick="sendOverride('FORCE_SKILL')">⚡ 决战技全开</button>
-          <button class="btn btn-retreat" onclick="sendOverride('RETREAT')">🔄 战术撤退换防</button>
-          <button class="btn btn-speed" onclick="sendOverride('TOGGLE_2X')">⏩ 切换2x倍速</button>
-          <button class="btn btn-reset" onclick="sendOverride('CLEAR_PANIC')">🟢 复位安全状态</button>
-          <button class="btn btn-panic" onclick="triggerEmergencyStop()">🛑 全局紧急熔断</button>
+      </section>
+
+      <!-- Panel 2: 商业代肝矩阵与任务总控 (Fleet & Missions) -->
+      <section class="card panel-fleet">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="icon">▥</span>
+            <span>02. 商业代肝矩阵与任务总控 (FLEET & MISSIONS)</span>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="openAccountModal()">+ 录入账户</button>
+            <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="openMissionModal()">+ 布置任务</button>
+            <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="openSquadModal()">🧠 搭配阵容</button>
+            <button class="btn btn-speed" style="padding: 2px 8px; font-size: 10px;" onclick="triggerRunMissions()">▶ 执行待办</button>
+            <button class="btn btn-panic" style="padding: 2px 8px; font-size: 10px;" onclick="triggerEmergencyStop()">🛑 停止执行</button>
+            <span class="tag-cyan" id="accountCountTag">4 ENROLLED</span>
+          </div>
         </div>
-        <!-- Real-time Console Log -->
-        <div class="terminal-log-box" id="terminalLog">
-          <!-- Live log items -->
+        <div class="card-body fleet-layout">
+          <div class="accounts-grid" id="accountsList">
+            <!-- Populated from SQLite via API -->
+          </div>
+          <!-- Active Mission Queue -->
+          <div class="mission-queue-bar">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <div class="sub-label" style="margin-bottom: 0;">ACTIVE TASK QUEUE (工单排班):</div>
+              <div class="btn-clear-bar">
+                <button class="btn-tiny btn-delete" onclick="clearMissions('QUEUED')">🗑️ 清空待办</button>
+                <button class="btn-tiny btn-run-single" onclick="clearMissions('FINISHED')">🧹 清理完成</button>
+              </div>
+            </div>
+            <div class="mission-list" id="missionList">
+              <div style="color: #484f58; font-size: 11px;">加载任务工单队列...</div>
+            </div>
+          </div>
+          <div class="mumu-instances-bar">
+            <div class="sub-label">MUMU 12 VM HARDWARE POOL:</div>
+            <div class="mumu-tag-list" id="mumuList">
+              <span class="mumu-tag">VM [0]: 127.0.0.1:16384 (15FPS / 550MB) ● RUNNING</span>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
+
+    <!-- Right Column: PRTS Real-time Terminal Log & Overrides (Full Height) -->
+    <div class="dashboard-col-right">
+      <section class="card panel-overrides" style="height: 100%;">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="icon">⚡</span>
+            <span>03. PRTS 神经中枢实时运行日志与战术接管 (TERMINAL LOGS & OVERRIDES)</span>
+          </div>
+          <div class="card-controls" style="display: flex; gap: 8px; align-items: center;">
+            <span class="tag-green">SSE LINK ACTIVE</span>
+            <span class="tag-red">COMMAND OVERRIDE ACTIVE</span>
+          </div>
+        </div>
+        <div class="card-body override-layout" style="display: flex; flex-direction: column; height: 100%; gap: 12px; padding: 14px;">
+          <!-- Control Buttons -->
+          <div class="override-buttons" style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <button class="btn btn-panic" onclick="sendOverride('PANIC_INTERCEPT')">🚨 紧急空投截停</button>
+            <button class="btn btn-skill" onclick="sendOverride('FORCE_SKILL')">⚡ 决战技全开</button>
+            <button class="btn btn-retreat" onclick="sendOverride('RETREAT')">🔄 战术撤退换防</button>
+            <button class="btn btn-speed" onclick="sendOverride('TOGGLE_2X')">⏩ 切换2x倍速</button>
+            <button class="btn btn-reset" onclick="sendOverride('CLEAR_PANIC')">🟢 复位安全状态</button>
+            <button class="btn btn-panic" onclick="triggerEmergencyStop()">🛑 全局紧急熔断</button>
+          </div>
+          <!-- Real-time Console Log (Full Height) -->
+          <div class="terminal-log-box" id="terminalLog" style="flex: 1; min-height: 520px; overflow-y: auto;">
+            <!-- Live log items -->
+          </div>
+        </div>
+      </section>
+    </div>
 
   </main>
 
@@ -424,6 +343,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20260920_v5"></script>
+  <script src="app.js?v=20260920_v6"></script>
 </body>
 </html>

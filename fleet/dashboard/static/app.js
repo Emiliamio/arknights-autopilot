@@ -24,13 +24,11 @@ const HIGH_GROUND_TILES = new Set([
 document.addEventListener("DOMContentLoaded", () => {
   console.log("[ASTA] Initializing PRTS Command Dashboard...");
   initSSE();
-  initCanvasAnimation();
   fetchAccounts();
   fetchFleet();
   fetchMissions();
   fetchStagesCatalog().then(() => {
     renderCategoryOptions();
-    searchCloudPlans();
   });
 });
 
@@ -257,19 +255,6 @@ function updateHUD(data) {
       threatText.textContent = "SAFE";
       threatDesc.textContent = "战场防线稳固，未探测到突破蓝门临界威胁";
     }
-  }
-
-  // Deployed Operators
-  renderDeployedOps(data.operators || []);
-
-  // Copilot Steps
-  renderCopilot(data.copilot || {});
-
-  // Anti-Cheat Stats
-  if (data.anti_cheat) {
-    document.getElementById("bezierMs").textContent = `${data.anti_cheat.bezier_motion_ms || 338} ms (Humanized)`;
-    document.getElementById("adbLatency").textContent = `${data.anti_cheat.adb_latency_ms || 170} ms`;
-    renderScatterPlot(data.anti_cheat.touch_scatter || []);
   }
 
   // Terminal Logs
@@ -977,7 +962,10 @@ function quickSelectStage(stage) {
   if (input) input.value = stage;
   const badge = document.getElementById("selectedStageBadge");
   if (badge) badge.textContent = `TARGET: ${stage}`;
-  searchCloudPlans();
+  const statusEl = document.getElementById("cloudSearchStatus");
+  if (statusEl) {
+    statusEl.innerHTML = `🎯 已锁定目标关卡 <strong>[${stage}]</strong>。点击【🚀 智能优选一键开打】即可自动抓取全网高赞作业实机通关！`;
+  }
 }
 
 function renderCategoryOptions() {
@@ -1159,8 +1147,12 @@ async function dispatchSpecificCloudPlan(planId, stage) {
 }
 
 async function autoDispatchBestPlan() {
-  const account_id = document.getElementById("cloudAccSelect").value;
-  const stage = (document.getElementById("customStageInput").value || "1-7").trim().toUpperCase();
+  const account_id = document.getElementById("cloudAccSelect")?.value || "EMILIAMIO_MAIN";
+  const stage = (document.getElementById("customStageInput")?.value || "1-7").trim().toUpperCase();
+  const statusEl = document.getElementById("cloudSearchStatus");
+  if (statusEl) {
+    statusEl.innerHTML = `🚀 正在为关卡 <strong>[${stage}]</strong> 联网抓取全网第一高赞作业并下发机队...`;
+  }
   console.log(`[ASTA] Auto resolving best plan for ${stage} on ${account_id}...`);
 
   try {
@@ -1177,13 +1169,15 @@ async function autoDispatchBestPlan() {
       closeCloudCopilotModal();
       fetchMissions();
       fetchTelemetryFallback();
-      alert(`🚀 [智能优选通关已启动]\n关卡: [${stage}]\n匹配作业: ${data.plan_title}\n工单编号: ${data.mission_id}\n任务已派发至执行机队！`);
+      if (statusEl) {
+        statusEl.innerHTML = `✅ [作业派发成功] 关卡 <strong>[${stage}]</strong> 已绑定工单 <strong>[${data.mission_id}]</strong>，作业: <em>${data.plan_title}</em> (已排入待办)`;
+      }
     } else {
-      alert("❌ 智能优选下发失败，请查看服务控制台。");
+      if (statusEl) statusEl.innerHTML = `❌ 智能优选下发失败，请查看右侧控制台日志。`;
     }
   } catch (e) {
     console.error("[ASTA] Auto dispatch best plan error:", e);
-    alert(`❌ 请求异常: ${e.message}`);
+    if (statusEl) statusEl.innerHTML = `❌ 请求异常: ${e.message}`;
   }
 }
 
