@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ASTA // PRTS 极星战术态势指挥大屏</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260920_v4">
 </head>
 <body class="prts-theme">
   <!-- Top Navigation Header -->
@@ -397,7 +397,7 @@
   </div>
 
   <!-- Modal for Cloud Copilot Hub (Main 0-17 / Events / Resources) -->
-  <div id="cloudCopilotModal" class="modal-backdrop" style="display: none;">
+  <div id="cloudCopilotModal" class="modal-backdrop" style="display: none;" onclick="if(event.target===this)closeCloudCopilotModal()">
     <div class="modal-card" style="width: 780px; max-height: 88vh; display: flex; flex-direction: column;">
       <div class="modal-header">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -471,6 +471,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20260920_v4"></script>
 </body>
 </html>

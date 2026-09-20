@@ -932,8 +932,14 @@ async function fetchStagesCatalog() {
 }
 
 function openCloudCopilotModal() {
+  console.log("[ASTA] openCloudCopilotModal triggered");
   const modal = document.getElementById("cloudCopilotModal");
-  if (modal) modal.style.display = "flex";
+  if (modal) {
+    modal.style.display = "flex";
+  } else {
+    console.error("[ASTA] cloudCopilotModal element not found in DOM");
+  }
+
   if (!stagesCatalog) {
     fetchStagesCatalog().then(() => {
       renderCategoryOptions();
@@ -1145,4 +1151,15 @@ async function autoDispatchBestPlan() {
     alert(`❌ 请求异常: ${e.message}`);
   }
 }
+
+// Explicit global window bindings for inline HTML onclick handlers
+window.openCloudCopilotModal = openCloudCopilotModal;
+window.closeCloudCopilotModal = closeCloudCopilotModal;
+window.onCategoryChanged = onCategoryChanged;
+window.onChapterChanged = onChapterChanged;
+window.onStageSelectChanged = onStageSelectChanged;
+window.searchCloudPlans = searchCloudPlans;
+window.autoDispatchBestPlan = autoDispatchBestPlan;
+window.dispatchSpecificCloudPlan = dispatchSpecificCloudPlan;
+
 
