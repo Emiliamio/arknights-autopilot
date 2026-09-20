@@ -176,6 +176,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return self._handle_api_missions()
         elif path == "/api/roster":
             return self._handle_api_roster()
+        elif path == "/api/stages/catalog":
+            return self._handle_api_stages_catalog()
+        elif path == "/api/copilot/cloud/search":
+            return self._handle_api_copilot_cloud_search()
         elif path == "/api/stream":
             return self._handle_sse_stream()
         else:
@@ -200,6 +204,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return self._handle_api_clear_missions()
         elif path == "/api/squad/synthesize":
             return self._handle_api_synthesize_squad()
+        elif path == "/api/copilot/cloud/download":
+            return self._handle_api_copilot_cloud_download()
+        elif path == "/api/copilot/auto_dispatch":
+            return self._handle_api_copilot_auto_dispatch()
         elif path == "/api/accounts/create":
             return self._handle_api_create_account()
         elif path == "/api/accounts/delete":
@@ -260,6 +268,110 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             roster = inspector.load_roster(account_id)
             self._send_json({"account_id": account_id, "operators": roster, "total": len(roster)})
         except Exception as e:
+            self._send_json({"error": str(e)}, 500)
+
+    def _handle_api_stages_catalog(self):
+        """Return hierarchical catalog of all stages across Episodes 0-17, Events, and Resources."""
+        try:
+            from tactical.stage_database import StageDatabase
+            catalog = StageDatabase.get_stage_catalog()
+            self._send_json(catalog)
+        except Exception as e:
+            logger.exception("Failed to generate stage catalog")
+            self._send_json({"error": str(e)}, 500)
+
+    def _handle_api_copilot_cloud_search(self):
+        """Search online MAA Copilot JSON plans via PRTS cloud hub."""
+        parsed = urlparse(self.path)
+        qs = parse_qs(parsed.query)
+        stage = qs.get("stage", ["1-7"])[0].strip()
+        page = int(qs.get("page", ["1"])[0])
+        limit = int(qs.get("limit", ["10"])[0])
+        try:
+            from tactical.copilot_cloud_hub import CopilotCloudHub
+            hub = CopilotCloudHub()
+            plans = hub.search_cloud_plans(stage_keyword=stage, page=page, limit=limit)
+            self._send_json({
+                "stage": stage,
+                "total": len(plans),
+                "plans": plans,
+                "source": "PRTS_CLOUD_HUB"
+            })
+        except Exception as e:
+            logger.exception("Failed to search copilot cloud")
+            self._send_json({"error": str(e)}, 500)
+
+    def _handle_api_copilot_cloud_download(self):
+        """Download and cache a specific MAA Copilot JSON plan by ID."""
+        content_length = int(self.headers.get("Content-Length", 0))
+        post_body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+        try:
+            req = json.loads(post_body)
+            plan_id = req.get("plan_id")
+            stage_name = req.get("stage_name", "")
+            if not plan_id:
+                self._send_json({"error": "plan_id is required"}, 400)
+                return
+            from tactical.copilot_cloud_hub import CopilotCloudHub
+            hub = CopilotCloudHub()
+            plan_obj, plan_path = hub.fetch_and_cache_plan(plan_id, stage_name)
+            self._send_json({"status": "SUCCESS", "plan_id": plan_id, "path": plan_path})
+        except Exception as e:
+            logger.exception("Failed to download copilot cloud plan")
+            self._send_json({"error": str(e)}, 500)
+
+    def _handle_api_copilot_auto_dispatch(self):
+        """Resolve the best cloud copilot plan for a stage and immediately dispatch combat mission."""
+        content_length = int(self.headers.get("Content-Length", 0))
+        post_body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+        try:
+            req = json.loads(post_body)
+            account_id = req.get("account_id", "EMILIAMIO_MAIN")
+            stage_name = req.get("stage_name", "1-7").strip().upper()
+            plan_id = req.get("plan_id")
+
+            from tactical.copilot_cloud_hub import CopilotCloudHub
+            hub = CopilotCloudHub()
+
+            plan_path = None
+            plan_title = ""
+            if plan_id:
+                plan_obj, plan_path = hub.fetch_and_cache_plan(plan_id, stage_name)
+                plan_title = f"云端指定作业 [{plan_id}]"
+            else:
+                plan_obj, plan_path = hub.auto_resolve_best_plan(stage_name)
+                plan_title = f"云端优选高赞作业 [{stage_name}]"
+
+            mgr = MissionManager()
+            m = mgr.create_mission(
+                account_id=account_id,
+                mission_type="COPILOT_CLEAR",
+                target_stage=stage_name,
+                params={
+                    "stage": stage_name,
+                    "plan_id": plan_id,
+                    "plan_file": plan_path,
+                    "plan_title": plan_title
+                }
+            )
+
+            store = getattr(self.server, "telemetry_store", None)
+            if store:
+                store.add_log("INFO", f"🌐 [云端作业] 为 {account_id} 在关卡 {stage_name} 匹配作业 ({plan_title})，立即下发工单: {m['mission_id']}")
+
+            orchestrator = FleetOrchestrator(telemetry_store=store)
+            dispatched = orchestrator.dispatch_specific_mission(m["mission_id"])
+
+            self._send_json({
+                "status": "SUCCESS",
+                "mission_id": m["mission_id"],
+                "stage": stage_name,
+                "plan_path": plan_path,
+                "plan_title": plan_title,
+                "dispatched": dispatched
+            })
+        except Exception as e:
+            logger.exception("Failed to auto dispatch copilot clear mission")
             self._send_json({"error": str(e)}, 500)
 
     def _handle_api_synthesize_squad(self):

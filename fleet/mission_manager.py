@@ -19,6 +19,7 @@ logger = logging.getLogger("ASTA.MissionManager")
 
 class MissionType:
     CAMPAIGN_CLEAR = "CAMPAIGN_CLEAR"      # 章节连续推图通关
+    COPILOT_CLEAR = "COPILOT_CLEAR"        # Route A 社区作业智能通关
     SANITY_FARM = "SANITY_FARM"            # 指定关卡定额刷体力
     INFRA_ROTATE = "INFRA_ROTATE"          # 基建收获与干员轮换
     DAILY_ROUTINE = "DAILY_ROUTINE"        # 签到/公招/任务奖励领取

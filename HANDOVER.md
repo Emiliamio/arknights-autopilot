@@ -3,7 +3,7 @@
 > **交接目标环境**：Google Antigravity IDE (反重力智能体)  
 > **唯一作者与架构师**：`Emiliamio <mio2110767128@163.com>`  
 > **基准日期**：2026-09-20  
-> **当前工程健康度**：`123 / 123` 单元测试全部通过 (`pytest tests/`，117 项即刻通过，6 项实机 ADB 在模拟器离线时优雅跳过)
+> **当前工程健康度**：`131 / 131` 单元测试全部通过 (`pytest tests/`，125 项即刻通过，6 项实机 ADB 在模拟器离线时优雅跳过)
 
 ---
 
@@ -11,6 +11,7 @@
 
 ASTA 是专为《明日方舟》打造的**工业级全自主空间战术导航、拟人反作弊物理执行与多账号商业代肝中台**。
 拒绝死板 JSON 脚本抄作业，核心采用 2.5D 透视单应性几何映射、拓扑网络流、毫秒级抢占式防漏怪看门狗与无头多开舰队编排调度。
+已完整集成 **MAA 云端全关卡作业调度中枢 (Cloud Copilot Hub)** 与 **PRTS Web 大屏态势指挥中心**，覆盖主线 **Episode 00 至 Episode 17 全章节**、全部 15+ 活动关卡与物资芯片，支持一键云端作业检索与智能优选实机通关。
 
 ### 目录与分层拓扑 (Architecture Map)
 ```
@@ -30,7 +31,9 @@ D:\arknights-autopilot\
 │   ├── threat_monitor.py       # 战局威胁度分级监护 (Green/Yellow/Red)
 │   ├── operator_archetypes.py  # 8大职业与细分分支干员特征原型
 │   ├── squad_synthesizer.py    # 动态阵容评分与干员出战优先级合成
-│   ├── stage_database.py       # 内置核心关卡元数据 (1-7, CE-6, LS-6, PR-X 等)
+│   ├── stage_database.py       # 主线 0-17 章、15+别传活动、芯片物资全量关卡数据库
+│   ├── copilot_cloud_hub.py    # MAA 社区云端作业实时检索、优选、缓存与自构中枢
+│   ├── copilot_brain.py        # 作业时间线步进、条件分支触发与干员模糊容错匹配
 │   ├── stage_analyzer.py       # 关卡高低地/阻挡点/行军路线分析
 │   ├── global_navigator.py     # 终端/主线/物资/活动全域 UI 导航状态机
 │   ├── roguelike_brain.py      # 萨卡兹/水月肉鸽路线推演与节点规划
@@ -38,15 +41,17 @@ D:\arknights-autopilot\
 ├── fleet/                      # 多开集群调度与商业代肝管理层
 │   ├── fleet_orchestrator.py   # 多实例分布式舰队调度器
 │   ├── account_manager.py      # SQLite WAL 账号凭据库与并发租借锁
-│   ├── mission_manager.py      # 任务队列、定时排班、理智恢复策略调度
-│   ├── task_executor.py        # 单任务独立 Worker 执行线程
+│   ├── mission_manager.py      # 任务队列、定时排班、理智恢复策略调度 (支持 COPILOT_CLEAR)
+│   ├── task_executor.py        # 单任务独立 Worker 执行线程 (直通 CopilotBrain + Telemetry)
 │   ├── multi_instance_runner.py# 模拟器多实例生命周期拉起与端口分配
-│   └── dashboard/server.py     # Web 遥测与监控大屏后端 (FastAPI + WebSocket)
+│   └── dashboard/              # PRTS 本地 Web 战术态势控制大屏 (127.0.0.1:8848)
+│       ├── server.py           # Multi-threaded HTTP + SSE + REST API Server
+│       └── static/             # 暗黑全息战术风格 UI (HTML5 Canvas 2.5D + JS + CSS3)
 ├── data/                       # 静态数据与资产
 │   ├── maps/                   # 关卡地图拓扑定义 (YAML)
-│   ├── copilots/               # 作业协议文件 (JSON)
+│   ├── copilots/               # 作业协议文件与云端缓存 (JSON)
 │   └── rosters/                # 玩家练度干员库 (JSON)
-├── tests/                      # 自动化测试套件 (81/81 全绿)
+├── tests/                      # 自动化测试套件 (131/131 全绿通过)
 ├── config.yaml                 # 运行时全局配置文件
 └── main.py                     # 统一 CLI 启动入口
 ```

@@ -221,3 +221,53 @@ def test_dashboard_full_api_crud_and_controls():
         server.stop()
         time.sleep(0.3)
         assert server.is_running is False
+
+
+def test_dashboard_stage_catalog_and_copilot_cloud_api():
+    """Verify /api/stages/catalog, /api/copilot/cloud/search, and /api/copilot/auto_dispatch."""
+    test_port = 18850
+    server = DashboardServer(host="127.0.0.1", port=test_port)
+    server.start(block=False)
+    time.sleep(0.5)
+
+    base_url = f"http://127.0.0.1:{test_port}"
+
+    try:
+        # 1. Test GET /api/stages/catalog
+        req = urllib.request.Request(f"{base_url}/api/stages/catalog")
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert "main_theme" in data
+            assert "events" in data
+            assert "resources" in data
+            assert len(data["main_theme"]) == 18  # Episode 00 to 17
+            assert len(data["events"]) >= 10
+
+        # 2. Test GET /api/copilot/cloud/search?stage=1-7
+        req = urllib.request.Request(f"{base_url}/api/copilot/cloud/search?stage=1-7&page=1&limit=5")
+        with urllib.request.urlopen(req, timeout=4.0) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["stage"] == "1-7"
+            assert "plans" in data
+            assert len(data["plans"]) > 0
+
+        # 3. Test POST /api/copilot/auto_dispatch (auto-resolve best plan and dispatch mission)
+        payload = json.dumps({
+            "account_id": "EMILIAMIO_MAIN",
+            "stage_name": "1-7"
+        }).encode("utf-8")
+        req = urllib.request.Request(f"{base_url}/api/copilot/auto_dispatch", data=payload, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=4.0) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["status"] == "SUCCESS"
+            assert "mission_id" in data
+            assert data["stage"] == "1-7"
+
+    finally:
+        server.stop()
+        time.sleep(0.3)
+        assert server.is_running is False
+

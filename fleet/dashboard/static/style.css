@@ -1060,3 +1060,114 @@ body.prts-theme {
   background: rgba(0, 229, 255, 0.08);
   box-shadow: 0 0 12px rgba(0, 229, 255, 0.25);
 }
+
+/* ==========================================================================
+   Cloud Copilot Hub & Plan Cards Styles
+   ========================================================================== */
+.cloud-plans-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.cloud-plan-card {
+  background: rgba(10, 16, 24, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.cloud-plan-card:hover {
+  border-color: var(--accent-cyan);
+  background: rgba(14, 22, 34, 0.95);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.15);
+}
+
+.cloud-plan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.cloud-plan-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.4;
+}
+
+.cloud-plan-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.cloud-plan-meta .badge-author {
+  color: #00e5ff;
+}
+
+.cloud-plan-meta .badge-likes {
+  color: #ffd600;
+}
+
+.cloud-plan-meta .badge-views {
+  color: #8b949e;
+}
+
+.cloud-plan-desc {
+  font-size: 11px;
+  color: #8b949e;
+  line-height: 1.4;
+  max-height: 48px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 6px 8px;
+  border-radius: 3px;
+  border-left: 2px solid var(--accent-cyan);
+}
+
+.cloud-plan-operators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cloud-op-pill {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  color: var(--accent-cyan);
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+
+.cloud-plan-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.cloud-empty-state {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+

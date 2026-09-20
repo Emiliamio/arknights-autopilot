@@ -131,6 +131,122 @@ class TaskExecutor:
                     self.mission_mgr.fail_mission(m_id, result.get("reason", "未知推图中断"))
                     return {"status": "FAILED", "error": result}
 
+            elif m_type == MissionType.COPILOT_CLEAR or (m_type == MissionType.SANITY_FARM and mission.get("params", {}).get("copilot_plan")):
+                stage = mission.get("target_stage", "1-7")
+                plan_path = mission.get("params", {}).get("copilot_plan")
+                self.mission_mgr.update_progress(m_id, f"正在进行关卡 [{stage}] Route A 智能作业推演与通关...")
+                self._log("INFO", f"⚔️ [Route A 作业通关] 正在锁定目标关卡 [{stage}] 并准备作业协议...")
+
+                # Resolve Copilot Plan
+                from tactical.copilot_cloud_hub import CopilotCloudHub
+                from tactical.copilot_adapter import CopilotAdapter
+                from tactical.copilot_brain import CopilotBrain
+                from tactical.map_deconstructor import TacticalMap
+
+                hub = CopilotCloudHub()
+                if plan_path and os.path.exists(plan_path):
+                    plan = CopilotAdapter.load_file(plan_path)
+                else:
+                    self._log("INFO", f"🌐 [云端检索] 本地未指定作业，正在全网智能检索 [{stage}] 最高赞通关作业...")
+                    plan, plan_path = hub.auto_resolve_best_plan(stage)
+                    self._log("INFO", f"📥 [云端抓取] 成功命中并下载作业: '{plan.title}' ({len(plan.actions)} 步动作)")
+
+                # Load Account Roster for Fuzzy Substitution
+                acc_profile = self.account_mgr.get_account(acc_id)
+                roster = None
+                if acc_profile and acc_profile.get("owned_roster"):
+                    roster = acc_profile["owned_roster"]
+                else:
+                    from tactical.roster_inspector import RosterInspector
+                    inspector = RosterInspector(adb_client=self.client, vision_engine=self.vision)
+                    roster_data = inspector.load_roster(acc_id)
+                    if roster_data:
+                        roster = [op["name"] for op in roster_data if "name" in op]
+
+                # Initialize Tactical Map and CopilotBrain
+                t_map = TacticalMap.create_1_7()
+                brain = CopilotBrain(tactical_map=t_map, copilot_plan=plan, owned_roster=roster)
+                if brain.substitutions:
+                    self._log("INFO", f"🎯 [干员平替] 已自适应替换干员: {brain.substitutions}")
+
+                # Enter battlefield via pilot
+                entered = self.pilot.enter_and_wait_battlefield(max_wait_sec=35)
+                if not entered:
+                    self.mission_mgr.fail_mission(m_id, "未能成功进入战斗场景")
+                    return {"status": "FAILED", "error": "Battlefield entrance timeout"}
+
+                # Update TelemetryStore with initial copilot steps
+                if self.telemetry_store:
+                    steps_view = []
+                    for idx, act in enumerate(brain.plan.actions):
+                        steps_view.append({
+                            "step": idx + 1,
+                            "name": act.name or act.action_type.value,
+                            "action": act.action_type.value,
+                            "tile": [act.col, act.row],
+                            "cost": act.min_costs,
+                            "status": "PENDING"
+                        })
+                    self.telemetry_store.copilot_name = plan.title or stage
+                    self.telemetry_store.copilot_steps = steps_view
+                    self.telemetry_store.battle_state = "IN_BATTLE"
+                    self.telemetry_store.stage_id = stage
+
+                # Run Real-Time Copilot Loop
+                battle_t0 = time.time()
+                max_duration = 300
+                combat_res = "TIMEOUT"
+
+                while time.time() - battle_t0 < max_duration:
+                    if AbortController.is_aborted():
+                        self.mission_mgr.cancel_mission(m_id)
+                        return {"status": "CANCELLED", "reason": AbortController.get_reason()}
+
+                    frame = self.client.screencap()
+                    res = brain.tick(
+                        frame=frame,
+                        vision_engine=self.vision,
+                        mapper=self.pilot.mapper,
+                        humanizer=self.pilot.humanizer,
+                        adb_client=self.client
+                    )
+
+                    # Update Web Telemetry Store in real time
+                    if self.telemetry_store:
+                        self.telemetry_store.dp = res.get("current_dp", self.telemetry_store.dp)
+                        if res.get("kill_count") and res["kill_count"][0] is not None:
+                            self.telemetry_store.kill_count = list(res["kill_count"])
+                        self.telemetry_store.current_step_idx = brain.current_action_idx
+
+                    action_taken = res.get("action_taken", "NONE")
+                    if action_taken != "NONE":
+                        self._log("INFO", f"⚔️ [作业执行] {action_taken} | 进度: {res.get('copilot_progress')}")
+                        self.mission_mgr.update_progress(m_id, f"执行动作: {action_taken} ({res.get('copilot_progress')})")
+
+                    if res.get("status") == "EMERGENCY_INTERVENING":
+                        self._log("WARN", f"🚨 [PanicDaemon 救场] 探测到突发防线威胁，毫秒级空投干员拦截!")
+                        if self.telemetry_store:
+                            self.telemetry_store.threat_level = "ALERT"
+
+                    if res.get("status") == "COMPLETED":
+                        settle = res.get("action_details", {}).get("settlement", "VICTORY")
+                        combat_res = settle
+                        self._log("INFO", f"🏆 [战斗结束] 判定状态: {settle}!")
+                        if self.telemetry_store:
+                            self.telemetry_store.battle_state = settle
+                        time.sleep(1.5)
+                        self.client.tap(960, 540)
+                        time.sleep(1.5)
+                        self.client.tap(960, 540)
+                        break
+
+                    time.sleep(0.35)
+
+                summary = f"关卡 [{stage}] Route A 作业通关完成: {combat_res} (进度 {brain.current_action_idx}/{len(brain.plan.actions)})"
+                self.mission_mgr.complete_mission(m_id, summary)
+                self._log("INFO", f"✅ [任务完成] {summary}")
+                return {"status": "SUCCESS", "summary": summary}
+
             elif m_type == MissionType.SANITY_FARM:
                 stage = mission.get("target_stage", "1-7")
                 self.mission_mgr.update_progress(m_id, f"正在刷关卡 [{stage}] 体力...")

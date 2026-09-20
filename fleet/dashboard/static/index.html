@@ -121,6 +121,7 @@
         <div style="display: flex; gap: 8px; align-items: center;">
           <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="openAccountModal()">+ 录入账户</button>
           <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="openMissionModal()">+ 布置任务</button>
+          <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px; background: rgba(0, 229, 255, 0.2); border-color: #00e5ff;" onclick="openCloudCopilotModal()">🌐 云端抄作业</button>
           <button class="btn btn-skill" style="padding: 2px 8px; font-size: 10px;" onclick="openSquadModal()">🧠 搭配阵容</button>
           <button class="btn btn-speed" style="padding: 2px 8px; font-size: 10px;" onclick="triggerRunMissions()">▶ 执行待办</button>
           <button class="btn btn-panic" style="padding: 2px 8px; font-size: 10px;" onclick="triggerEmergencyStop()">🛑 停止执行</button>
@@ -160,7 +161,10 @@
           <span class="icon">▤</span>
           <span>04. 作业执行与应急救场 (COPILOT & PANIC DAEMON)</span>
         </div>
-        <span class="tag-amber">DUAL-TRACK AUTONOMY</span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn-tiny btn-run-single" style="font-size: 10px; padding: 2px 8px;" onclick="openCloudCopilotModal()">🌐 检索云端作业</button>
+          <span class="tag-amber">DUAL-TRACK AUTONOMY</span>
+        </div>
       </div>
       <div class="card-body copilot-layout">
         <!-- Copilot Steps Timeline -->
@@ -352,6 +356,7 @@
           <label>任务类型 (MISSION TYPE):</label>
           <select id="modalTypeSelect" class="form-input" onchange="toggleMissionTypeFields()">
             <option value="CAMPAIGN_CLEAR">章节通关巡航 (CAMPAIGN_CLEAR)</option>
+            <option value="COPILOT_CLEAR">🌐 云端智能抄作业通关 (COPILOT_CLEAR)</option>
             <option value="ROGUELIKE">集成战略 / 肉鸽自主推演 (ROGUELIKE)</option>
             <option value="SANITY_FARM">定额刷体力 (SANITY_FARM)</option>
             <option value="INFRA_ROTATE">基建自动轮换 (INFRA_ROTATE)</option>
@@ -377,13 +382,91 @@
           </select>
         </div>
         <div class="form-group" id="stageField" style="display: none;">
-          <label>目标关卡代号 (TARGET STAGE):</label>
-          <input id="modalStageInput" class="form-input" type="text" value="1-7" placeholder="e.g. 1-7, LS-1, CE-5" />
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label style="margin-bottom: 0;">目标关卡代号 (TARGET STAGE):</label>
+            <button type="button" class="btn-tiny btn-run-single" onclick="openCloudCopilotModal()">🌐 浏览云端作业库</button>
+          </div>
+          <input id="modalStageInput" class="form-input" type="text" value="1-7" placeholder="e.g. 1-7, H12-4, CW-10, LS-5" />
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-reset" onclick="closeMissionModal()">取消</button>
         <button class="btn btn-skill" onclick="submitMission()">＋ 建立工单 (加入待办)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Cloud Copilot Hub (Main 0-17 / Events / Resources) -->
+  <div id="cloudCopilotModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card" style="width: 780px; max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="pulse-dot"></span>
+          <span class="modal-title">🌐 PRTS 全网战术作业云端中枢 (MAA CLOUD COPILOT HUB)</span>
+        </div>
+        <button class="close-btn" onclick="closeCloudCopilotModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="overflow-y: auto; flex: 1; padding-right: 8px;">
+        <!-- Account Selection & Quick Category -->
+        <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group">
+            <label>执行账号 (OPERATOR ACCOUNT):</label>
+            <select id="cloudAccSelect" class="form-input">
+              <option value="EMILIAMIO_MAIN">EMILIAMIO_MAIN (总指挥官专属)</option>
+              <option value="TB_SVIP_001">TB_SVIP_001 (淘宝大客户)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>关卡体系分类 (CATEGORY):</label>
+            <select id="stageCategorySelect" class="form-input" onchange="onCategoryChanged()">
+              <option value="main">主线全战役 (EPISODE 00 ~ 17 绝境/普通全收录)</option>
+              <option value="events">SideStory & 故事集活动 (怀黍离/巴别塔/孤星等15+)</option>
+              <option value="resources">芯片 / 战术物资 / 剿灭作战</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Cascading Selectors: Chapter/Event -> Stage -->
+        <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group">
+            <label id="chapterSelectLabel">所属章节 / 活动 (CHAPTER / EVENT):</label>
+            <select id="chapterSelect" class="form-input" onchange="onChapterChanged()">
+              <!-- Populated dynamically via /api/stages/catalog -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label>选择关卡 (SPECIFIC STAGE):</label>
+            <select id="stageSelect" class="form-input" onchange="onStageSelectChanged()">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Free-text code search & Action Bar -->
+        <div style="display: flex; gap: 8px; align-items: flex-end; margin-bottom: 14px; background: rgba(0, 229, 255, 0.05); padding: 10px; border-radius: 4px; border: 1px dashed rgba(0, 229, 255, 0.3);">
+          <div class="form-group" style="flex: 1; margin-bottom: 0;">
+            <label style="color: #ffd600;">自由精准关卡代号 (TARGET STAGE CODE):</label>
+            <input id="customStageInput" class="form-input" type="text" value="1-7" placeholder="输入任意关卡代号，如 1-7, 7-18, H12-4, CW-10, BB-8, PR-B-1..." />
+          </div>
+          <button class="btn btn-skill" style="height: 36px; padding: 0 16px; white-space: nowrap;" onclick="searchCloudPlans()">🔍 联网检索云端作业</button>
+          <button class="btn btn-panic" style="height: 36px; padding: 0 16px; white-space: nowrap;" onclick="autoDispatchBestPlan()">🚀 一键优选开打</button>
+        </div>
+
+        <!-- Search Status & Results Container -->
+        <div id="cloudSearchStatus" style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
+          就绪。已覆盖主线 Episode 00~17 及全活动/物资关卡。点击【🔍 联网检索云端作业】或【🚀 一键优选开打】。
+        </div>
+
+        <!-- Cards List -->
+        <div id="cloudPlansList" class="cloud-plans-container">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span style="color: #8b949e; font-size: 11px; font-family: var(--font-mono); margin-right: auto;">
+          📡 PRTS Cloud Hub · MAA 作业分享社区 (prts.maa.plus) 实时直连
+        </span>
+        <button class="btn btn-reset" onclick="closeCloudCopilotModal()">关闭视窗</button>
       </div>
     </div>
   </div>

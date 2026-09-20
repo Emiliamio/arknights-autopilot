@@ -28,6 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
   fetchAccounts();
   fetchFleet();
   fetchMissions();
+  fetchStagesCatalog();
 });
 
 // 1. SSE Real-time Event Pipeline
@@ -114,10 +115,12 @@ function renderAccounts(accounts) {
 
   const modalSelect = document.getElementById("modalAccSelect");
   const squadSelect = document.getElementById("squadAccSelect");
+  const cloudSelect = document.getElementById("cloudAccSelect");
   if (accounts.length > 0) {
     const opts = accounts.map(acc => `<option value="${acc.account_id}">${acc.account_id} (${acc.client_name || 'Client'})</option>`).join("");
     if (modalSelect) modalSelect.innerHTML = opts;
     if (squadSelect) squadSelect.innerHTML = opts;
+    if (cloudSelect) cloudSelect.innerHTML = opts;
   }
 
   list.innerHTML = accounts.map(acc => {
@@ -590,6 +593,8 @@ function renderMissions(missions) {
     let targetDesc = "";
     if (m.mission_type === "CAMPAIGN_CLEAR") {
       targetDesc = `第 ${m.target_chapter ?? 0} 章`;
+    } else if (m.mission_type === "COPILOT_CLEAR") {
+      targetDesc = `云端作业 [${m.target_stage}]`;
     } else if (m.mission_type === "SANITY_FARM") {
       targetDesc = `关卡 [${m.target_stage}]`;
     }
@@ -714,6 +719,10 @@ function toggleMissionTypeFields() {
     chField.style.display = "flex";
     stField.style.display = "none";
     if (themeField) themeField.style.display = "none";
+  } else if (type === "COPILOT_CLEAR") {
+    chField.style.display = "none";
+    stField.style.display = "flex";
+    if (themeField) themeField.style.display = "none";
   } else if (type === "ROGUELIKE") {
     chField.style.display = "none";
     stField.style.display = "none";
@@ -733,15 +742,15 @@ async function submitMission() {
   const account_id = document.getElementById("modalAccSelect").value;
   const mission_type = document.getElementById("modalTypeSelect").value;
   const target_chapter = parseInt(document.getElementById("modalChapterSelect").value, 10);
-  const target_stage = document.getElementById("modalStageInput").value;
+  const target_stage = document.getElementById("modalStageInput").value.trim();
 
   const theme = document.getElementById("modalThemeSelect") ? document.getElementById("modalThemeSelect").value : "IS4";
   const payload = {
     account_id,
     mission_type,
     target_chapter: mission_type === "CAMPAIGN_CLEAR" ? target_chapter : null,
-    target_stage: mission_type === "SANITY_FARM" ? target_stage : null,
-    params: { auto_skip_story: true, theme }
+    target_stage: (mission_type === "SANITY_FARM" || mission_type === "COPILOT_CLEAR") ? target_stage : null,
+    params: { auto_skip_story: true, theme, stage: target_stage }
   };
 
   try {
@@ -905,3 +914,235 @@ function renderSquadResults(data) {
     </div>
   `).join("");
 }
+
+// 11. Cloud Copilot Hub (Episodes 00-17 / Events / Resources & Online Plans)
+let stagesCatalog = null;
+let currentCloudPlans = [];
+
+async function fetchStagesCatalog() {
+  try {
+    const res = await fetch("/api/stages/catalog");
+    if (res.ok) {
+      stagesCatalog = await res.json();
+      console.log("[ASTA] Stages catalog loaded:", stagesCatalog);
+    }
+  } catch (e) {
+    console.error("[ASTA] Failed to fetch stages catalog:", e);
+  }
+}
+
+function openCloudCopilotModal() {
+  const modal = document.getElementById("cloudCopilotModal");
+  if (modal) modal.style.display = "flex";
+  if (!stagesCatalog) {
+    fetchStagesCatalog().then(() => {
+      renderCategoryOptions();
+    });
+  } else {
+    renderCategoryOptions();
+  }
+}
+
+function closeCloudCopilotModal() {
+  const modal = document.getElementById("cloudCopilotModal");
+  if (modal) modal.style.display = "none";
+}
+
+function renderCategoryOptions() {
+  if (!stagesCatalog) return;
+  onCategoryChanged();
+}
+
+function onCategoryChanged() {
+  if (!stagesCatalog) return;
+  const cat = document.getElementById("stageCategorySelect").value;
+  const chSelect = document.getElementById("chapterSelect");
+  const label = document.getElementById("chapterSelectLabel");
+  if (!chSelect) return;
+
+  if (cat === "main") {
+    label.textContent = "所属主线章节 (EPISODE 00-17):";
+    const chs = stagesCatalog.main_theme || [];
+    chSelect.innerHTML = chs.map(c => `<option value="${c.chapter}">${c.title} (${c.stages_count}关 · Boss: ${c.boss})</option>`).join("");
+  } else if (cat === "events") {
+    label.textContent = "所属 SideStory / 故事集活动:";
+    const evs = stagesCatalog.events || [];
+    chSelect.innerHTML = evs.map((e, idx) => `<option value="EVENT_${idx}">${e.name} [${e.code}] (${e.stages.length}关)</option>`).join("");
+  } else if (cat === "resources") {
+    label.textContent = "所属物资 / 芯片 / 剿灭类别:";
+    const resList = stagesCatalog.resources || [];
+    chSelect.innerHTML = resList.map((r, idx) => `<option value="RES_${idx}">${r.category} (${r.stages.length}关)</option>`).join("");
+  }
+  onChapterChanged();
+}
+
+function onChapterChanged() {
+  if (!stagesCatalog) return;
+  const cat = document.getElementById("stageCategorySelect").value;
+  const chVal = document.getElementById("chapterSelect").value;
+  const stSelect = document.getElementById("stageSelect");
+  if (!stSelect) return;
+
+  let stages = [];
+  if (cat === "main") {
+    const chNum = parseInt(chVal, 10);
+    const item = (stagesCatalog.main_theme || []).find(c => c.chapter === chNum);
+    stages = item ? item.stages : [];
+  } else if (cat === "events") {
+    const idx = parseInt(chVal.replace("EVENT_", ""), 10);
+    const item = (stagesCatalog.events || [])[idx];
+    stages = item ? item.stages : [];
+  } else if (cat === "resources") {
+    const idx = parseInt(chVal.replace("RES_", ""), 10);
+    const item = (stagesCatalog.resources || [])[idx];
+    stages = item ? item.stages : [];
+  }
+
+  if (stages && stages.length > 0) {
+    stSelect.innerHTML = stages.map(s => `<option value="${s}">${s}</option>`).join("");
+    onStageSelectChanged();
+  } else {
+    stSelect.innerHTML = `<option value="1-7">1-7</option>`;
+  }
+}
+
+function onStageSelectChanged() {
+  const st = document.getElementById("stageSelect").value;
+  const input = document.getElementById("customStageInput");
+  if (input && st) {
+    input.value = st;
+  }
+}
+
+async function searchCloudPlans() {
+  const stage = (document.getElementById("customStageInput").value || "1-7").trim().toUpperCase();
+  const statusEl = document.getElementById("cloudSearchStatus");
+  const listEl = document.getElementById("cloudPlansList");
+
+  if (statusEl) {
+    statusEl.innerHTML = `📡 正在联网查询 PRTS / MAA 作业库关卡 <strong>[${stage}]</strong> 的云端高赞作业...`;
+  }
+  if (listEl) {
+    listEl.innerHTML = `<div class="cloud-empty-state"><span class="pulse-dot" style="display:inline-block; margin-right:6px;"></span> 正在解析云端战术作业矩阵...</div>`;
+  }
+
+  try {
+    const res = await fetch(`/api/copilot/cloud/search?stage=${encodeURIComponent(stage)}&page=1&limit=10`);
+    if (res.ok) {
+      const data = await res.json();
+      currentCloudPlans = data.plans || [];
+      renderCloudPlans(data, stage);
+    } else {
+      if (statusEl) statusEl.textContent = `❌ 查询失败: HTTP ${res.status}`;
+    }
+  } catch (e) {
+    console.error("[ASTA] Failed to search cloud plans:", e);
+    if (statusEl) statusEl.textContent = `❌ 联网查询异常: ${e.message}`;
+  }
+}
+
+function renderCloudPlans(data, stage) {
+  const statusEl = document.getElementById("cloudSearchStatus");
+  const listEl = document.getElementById("cloudPlansList");
+  if (!listEl) return;
+
+  const plans = data.plans || [];
+  if (statusEl) {
+    statusEl.innerHTML = `✅ 成功检索到 <strong>${data.total || plans.length}</strong> 套关于关卡 <strong>[${stage}]</strong> 的战术作业 (耗时: ${data.source || 'PRTS Cloud'})`;
+  }
+
+  if (plans.length === 0) {
+    listEl.innerHTML = `
+      <div class="cloud-empty-state">
+        <div>未发现专门针对 [${stage}] 的第三方高赞作业。</div>
+        <div style="margin-top: 6px; color: #ffd600;">您可以直接点击【🚀 一键优选开打】，系统将自构基线通用战术方案执行通关！</div>
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = plans.map(p => {
+    const ops = (p.operators || []).slice(0, 8);
+    const opsPills = ops.map(op => `<span class="cloud-op-pill">${op}</span>`).join("");
+    const planIdStr = p.id ? String(p.id) : "";
+    const likesStr = p.likes != null ? p.likes : 0;
+    const viewsStr = p.views != null ? p.views : 0;
+
+    return `
+      <div class="cloud-plan-card">
+        <div class="cloud-plan-header">
+          <div class="cloud-plan-title">${p.title || 'MAA 智能通关作业'}</div>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn btn-skill" style="padding: 3px 10px; font-size: 11px;" onclick="dispatchSpecificCloudPlan('${planIdStr}', '${stage}')">▶ 选用并执行</button>
+          </div>
+        </div>
+        <div class="cloud-plan-meta">
+          <span class="badge-author">👤 ${p.author || 'MAA社区干员'}</span>
+          <span class="badge-likes">👍 ${likesStr} 赞</span>
+          <span class="badge-views">👁️ ${viewsStr} 浏览</span>
+          <span style="color: #484f58;">ID: ${planIdStr.slice(-8)}</span>
+        </div>
+        ${p.description ? `<div class="cloud-plan-desc">${p.description}</div>` : ''}
+        ${opsPills ? `<div class="cloud-plan-operators">${opsPills}</div>` : ''}
+      </div>
+    `;
+  }).join("");
+}
+
+async function dispatchSpecificCloudPlan(planId, stage) {
+  const account_id = document.getElementById("cloudAccSelect").value;
+  console.log(`[ASTA] Dispatching specific plan ${planId} for ${stage} on ${account_id}...`);
+  try {
+    const res = await fetch("/api/copilot/auto_dispatch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        account_id,
+        stage_name: stage,
+        plan_id: planId
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      closeCloudCopilotModal();
+      fetchMissions();
+      fetchTelemetryFallback();
+      alert(`🚀 [云端作业下发成功]\n已将作业绑定至工单 [${data.mission_id}] 并即刻启动！\n可在大屏面板 04 观测战术推演。`);
+    } else {
+      alert("❌ 下发失败，请查看控制台日志。");
+    }
+  } catch (e) {
+    console.error("[ASTA] Failed to dispatch specific plan:", e);
+    alert(`❌ 请求异常: ${e.message}`);
+  }
+}
+
+async function autoDispatchBestPlan() {
+  const account_id = document.getElementById("cloudAccSelect").value;
+  const stage = (document.getElementById("customStageInput").value || "1-7").trim().toUpperCase();
+  console.log(`[ASTA] Auto resolving best plan for ${stage} on ${account_id}...`);
+
+  try {
+    const res = await fetch("/api/copilot/auto_dispatch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        account_id,
+        stage_name: stage
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      closeCloudCopilotModal();
+      fetchMissions();
+      fetchTelemetryFallback();
+      alert(`🚀 [智能优选通关已启动]\n关卡: [${stage}]\n匹配作业: ${data.plan_title}\n工单编号: ${data.mission_id}\n任务已派发至执行机队！`);
+    } else {
+      alert("❌ 智能优选下发失败，请查看服务控制台。");
+    }
+  } catch (e) {
+    console.error("[ASTA] Auto dispatch best plan error:", e);
+    alert(`❌ 请求异常: ${e.message}`);
+  }
+}
+
