@@ -1,10 +1,11 @@
-from fleet.fleet_orchestrator import FleetOrchestrator
 # -*- coding: utf-8 -*-
 """
 ASTA - Arknights Sovereign Tactical Autopilot
 PRTS Local Web Tactical Command Dashboard Server (HTTP + SSE + REST)
 Author: Emiliamio <mio2110767128@163.com>
 """
+
+from fleet.fleet_orchestrator import FleetOrchestrator
 
 import os
 import sys

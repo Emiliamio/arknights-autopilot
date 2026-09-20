@@ -60,15 +60,23 @@ class GameLauncher:
         ps_out = self.client.shell(f"ps -A | grep {self.package_name}")
         return self.package_name in (ps_out or "")
 
-    def ensure_game_launched(self, max_wait_sec: int = 60) -> bool:
+    def ensure_game_launched(self, max_wait_sec: int = 30, auto_launch_emulator: bool = False) -> bool:
         """Ensure MuMu emulator and Arknights are running in foreground."""
-        # 1. Connect to emulator, auto-booting MuMu 12 if stopped
+        # 1. Connect to emulator
         try:
-            if not self.client.device_serial or not self.client.is_instance_running():
-                logger.info("[*] MuMu 12 emulator not running or connected. Connecting/launching...")
-                self.client.connect(auto_launch=True)
+            if not self.client.device_serial:
+                if not self.client.is_instance_running():
+                    if auto_launch_emulator:
+                        logger.info("[*] MuMu 12 emulator not running. Auto-launching...")
+                        self.client.connect(auto_launch=True)
+                    else:
+                        logger.info("[*] MuMu 12 模拟器未在运行，等待指挥官在桌面手动开启...")
+                        return False
+                else:
+                    self.client.connect(auto_launch=False)
         except Exception as e:
             logger.warning(f"[!] Warning connecting to MuMu 12: {e}")
+            return False
 
         # 2. Check if Arknights app is alive, cold launch if needed
         if not self.is_game_running():

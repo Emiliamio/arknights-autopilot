@@ -25,7 +25,9 @@ class FleetOrchestrator:
     Manages concurrent multi-account execution across multiple MuMu 12 VM instances.
     Features:
     - Parallel thread pool dispatching for independent VMs (127.0.0.1:16384, 16416, 16448...).
-    - Dedicated VM slot binding and dynamic load balancing.
+    - Dynamic multi-slot topology with dedicated port binding (16384 + 32 * idx).
+    - Account rotation & session detection on shared VM slots.
+    - Sanity depletion auto-yield to sleep queue.
     - Real-time multi-VM telemetry aggregation for the PRTS Web Dashboard.
     - Global emergency stop coordination across all active worker threads.
     """
@@ -63,16 +65,18 @@ class FleetOrchestrator:
         logger.info(f"[+] FleetOrchestrator initialized with {len(self._slots)} VM slots.")
 
     def _refresh_vm_slots(self):
-        """Scans hardware pool and initializes VM slots."""
+        """Scans hardware pool and initializes VM slots with multi-worker support."""
         with self._state_lock:
+            mumu_vms = {}
             try:
                 mumu_vms = self.runner_helper.list_all_mumu_instances()
             except Exception as e:
                 logger.warning(f"[!] Unable to query MuMuManager instances: {e}")
-                mumu_vms = {"0": {"name": "MuMu-Main", "index": "0", "is_android_started": True}}
 
-            for idx_str, info in mumu_vms.items():
-                idx = int(idx_str)
+            # Populate slots: use detected VMs and guarantee slots up to max_workers
+            total_slots_needed = max(len(mumu_vms), self.max_workers)
+            for idx in range(total_slots_needed):
+                info = mumu_vms.get(str(idx), {})
                 if idx not in self._slots:
                     self._slots[idx] = {
                         "instance_index": idx,
@@ -80,6 +84,7 @@ class FleetOrchestrator:
                         "port": 16384 + 32 * idx,
                         "status": "IDLE",  # IDLE, RUNNING, BOOTING, ERROR
                         "current_account": None,
+                        "last_used_account": None,
                         "current_mission_id": None,
                         "current_mission_type": None,
                         "progress": "待命就绪"
@@ -104,6 +109,7 @@ class FleetOrchestrator:
     def dispatch_pending_missions(self, force_reset_abort: bool = False) -> int:
         """
         Inspects QUEUED missions and dispatches them in parallel to available VM slots.
+        Skips accounts with SANITY_EMPTY until sanity recovers.
         Returns the number of newly dispatched missions.
         """
         if force_reset_abort:
@@ -123,6 +129,12 @@ class FleetOrchestrator:
         for mission in queued_missions:
             acc_id = mission["account_id"]
             acc = self.account_mgr.get_account(acc_id)
+
+            # Sanity depletion guard: skip accounts with no sanity
+            if acc and acc.get("current_status") == "SANITY_EMPTY":
+                logger.info(f"[*] Skipping mission {mission['mission_id']} for account {acc_id}: SANITY_EMPTY")
+                continue
+
             target_vm = acc.get("assigned_instance", 0) if acc else 0
 
             assigned_slot = None
@@ -164,7 +176,6 @@ class FleetOrchestrator:
 
         return dispatched_count
 
-
     def dispatch_specific_mission(self, mission_id: str) -> bool:
         """Explicitly dispatches a specific target mission to a free VM slot."""
         AbortController.reset()
@@ -175,6 +186,10 @@ class FleetOrchestrator:
 
         acc_id = mission["account_id"]
         acc = self.account_mgr.get_account(acc_id)
+        if acc and acc.get("current_status") == "SANITY_EMPTY":
+            logger.warning(f"[!] Cannot dispatch mission {mission_id}: Account {acc_id} is SANITY_EMPTY")
+            return False
+
         target_vm = acc.get("assigned_instance", 0) if acc else 0
 
         assigned_slot = None
@@ -212,7 +227,7 @@ class FleetOrchestrator:
         return False
 
     def _run_slot_worker(self, instance_index: int, mission: Dict[str, Any]):
-        """Dedicated execution loop for an individual VM slot."""
+        """Dedicated execution loop for an individual VM slot with account rotation detection."""
         m_id = mission["mission_id"]
         acc_id = mission["account_id"]
         port = 16384 + 32 * instance_index
@@ -224,8 +239,24 @@ class FleetOrchestrator:
                 f"⚡ [多开并发] VM [{instance_index}] (端口 {port}) 接管工单 {m_id} ➔ 账号 {acc_id}"
             )
 
+        # Detect account rotation on this slot
+        is_switch = False
+        with self._state_lock:
+            last_acc = self._slots[instance_index].get("last_used_account")
+            if last_acc and last_acc != acc_id:
+                is_switch = True
+                logger.info(f"[*] Account rotation detected on VM [{instance_index}]: {last_acc} ➔ {acc_id}")
+            self._slots[instance_index]["last_used_account"] = acc_id
+
+        if is_switch and self.telemetry_store:
+            self.telemetry_store.add_log(
+                "INFO",
+                f"🔄 [账号轮转] VM [{instance_index}] 检测到账号变更: {last_acc} ➔ {acc_id}"
+            )
+
         executor = TaskExecutor(
             mission_manager=self.mission_mgr,
+            account_manager=self.account_mgr,
             telemetry_store=self.telemetry_store,
             instance_index=instance_index
         )
@@ -246,7 +277,7 @@ class FleetOrchestrator:
                     self._slots[instance_index]["progress"] = "待命就绪"
 
             # After freeing slot, check if more queued missions are waiting
-            time.sleep(1.0)
+            time.sleep(0.5)
             self.dispatch_pending_missions()
 
     def stop_all(self, reason: str = "指挥官中止全局多开"):

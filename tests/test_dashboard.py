@@ -127,3 +127,97 @@ def test_dashboard_server_startup_and_endpoints():
         server.stop()
         time.sleep(0.3)
         assert server.is_running is False
+
+
+def test_dashboard_full_api_crud_and_controls():
+    """Verify full CRUD operations on missions, accounts, roster, and emergency stop via Dashboard."""
+    test_port = 18849
+    server = DashboardServer(host="127.0.0.1", port=test_port)
+    server.start(block=False)
+    time.sleep(0.5)
+
+    base_url = f"http://127.0.0.1:{test_port}"
+
+    try:
+        # 1. Test POST /api/missions (create new mission)
+        payload = json.dumps({
+            "account_id": "EMILIAMIO_MAIN",
+            "mission_type": "SANITY_FARM",
+            "target_stage": "1-7",
+            "params": {"auto_skip_story": True}
+        }).encode("utf-8")
+        req = urllib.request.Request(f"{base_url}/api/missions", data=payload, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["status"] == "SUCCESS"
+            assert "mission" in data
+            m_id = data["mission"]["mission_id"]
+
+        # 2. Test GET /api/missions
+        req = urllib.request.Request(f"{base_url}/api/missions")
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert any(m["mission_id"] == m_id for m in data["missions"])
+
+        # 3. Test POST /api/missions/delete
+        del_payload = json.dumps({"mission_id": m_id}).encode("utf-8")
+        req = urllib.request.Request(f"{base_url}/api/missions/delete", data=del_payload, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["status"] == "SUCCESS"
+            assert data["deleted"] is True
+
+        # 4. Test POST /api/accounts/create and /api/accounts/delete
+        test_acc_id = "TEST_CLIENT_999"
+        acc_payload = json.dumps({
+            "account_id": test_acc_id,
+            "client_name": "自动化测试客户",
+            "platform": "BILIBILI",
+            "service_tier": "MONTHLY"
+        }).encode("utf-8")
+        req = urllib.request.Request(f"{base_url}/api/accounts/create", data=acc_payload, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["status"] == "SUCCESS"
+
+        del_acc_payload = json.dumps({"account_id": test_acc_id}).encode("utf-8")
+        req = urllib.request.Request(f"{base_url}/api/accounts/delete", data=del_acc_payload, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["status"] == "SUCCESS"
+            assert data["deleted"] is True
+
+        # 5. Test GET /api/roster
+        req = urllib.request.Request(f"{base_url}/api/roster?account_id=EMILIAMIO_MAIN")
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert "operators" in data
+            assert data["total"] > 0
+
+        # 6. Test POST /api/squad/synthesize
+        syn_payload = json.dumps({"account_id": "EMILIAMIO_MAIN", "stage_id": "1-7"}).encode("utf-8")
+        req = urllib.request.Request(f"{base_url}/api/squad/synthesize", data=syn_payload, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert "squad" in data
+            assert data["total_operators"] == 12
+
+        # 7. Test POST /api/stop (emergency stop)
+        stop_payload = json.dumps({"action": "EMERGENCY_STOP"}).encode("utf-8")
+        req = urllib.request.Request(f"{base_url}/api/stop", data=stop_payload, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["status"] == "ABORTED"
+
+    finally:
+        server.stop()
+        time.sleep(0.3)
+        assert server.is_running is False

@@ -35,30 +35,31 @@ class TaskExecutor:
     def __init__(
         self,
         mission_manager: Optional[MissionManager] = None,
+        account_manager: Optional[AccountManager] = None,
         adb_client: Optional[ADBClient] = None,
         telemetry_store: Optional[Any] = None,
         instance_index: int = 0
     ):
         self.instance_index = instance_index
         self.mission_mgr = mission_manager or MissionManager()
-        self.account_mgr = AccountManager()
+        self.account_mgr = account_manager or AccountManager()
         self.telemetry_store = telemetry_store
         self.client = adb_client or ADBClient(instance_index=instance_index)
         self.vision = VisionEngine()
         self.launcher = GameLauncher(adb_client=self.client, vision_engine=self.vision)
         self.navigator = GlobalNavigator(adb_client=self.client, vision_engine=self.vision)
         self.pilot = UniversalCombatPilot(adb_client=self.client, vision_engine=self.vision)
-
-    def _log(self, level: str, msg: str):
-        logger.info(f"[{level}] {msg}")
-        if self.telemetry_store:
-            self.telemetry_store.add_log(level, msg)
         self.cruiser = CampaignCruiser(
             adb_client=self.client,
             vision_engine=self.vision,
             navigator=self.navigator,
             pilot=self.pilot
         )
+
+    def _log(self, level: str, msg: str):
+        logger.info(f"[{level}] {msg}")
+        if self.telemetry_store:
+            self.telemetry_store.add_log(level, msg)
 
     def execute_mission(self, mission: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a single checked-out mission end-to-end."""

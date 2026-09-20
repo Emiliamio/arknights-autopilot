@@ -88,7 +88,8 @@ class MissionManager:
     ) -> Dict[str, Any]:
         """Create and enqueue a new mission task."""
         if not mission_id:
-            mission_id = f"TASK_{int(time.time()*1000)}_{mission_type[:4]}"
+            import uuid
+            mission_id = f"TASK_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}_{mission_type[:4]}"
 
         params_json = json.dumps(params or {}, ensure_ascii=False)
         with self._get_connection() as conn:
