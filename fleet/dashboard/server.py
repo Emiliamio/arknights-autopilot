@@ -51,8 +51,8 @@ class TelemetryStore:
         self.leak_info: Optional[Dict[str, Any]] = None
 
         # Tactical Map & Operators
-        self.stage_id = "1-7"
-        self.stage_title = "固源岩圣地 · 空间战术推演"
+        self.stage_id = "IDLE"
+        self.stage_title = "STANDBY (机队空闲待命)"
         self.active_blockers: List[List[int]] = [[3, 4]]
         self.primary_choke = [3, 4]
         self.deployed_operators: List[Dict[str, Any]] = [
@@ -357,6 +357,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
             store = getattr(self.server, "telemetry_store", None)
             if store:
+                store.stage_id = stage_name
+                store.stage_title = f"[{stage_name}] 自动化作战中"
+                store.battle_state = "IN_BATTLE"
                 store.add_log("INFO", f"🌐 [云端作业] 为 {account_id} 在关卡 {stage_name} 匹配作业 ({plan_title})，立即下发工单: {m['mission_id']}")
 
             orchestrator = FleetOrchestrator(telemetry_store=store)
@@ -452,6 +455,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         store = getattr(self.server, "telemetry_store", None)
         if store:
             store.threat_level = "SAFE"
+            store.stage_id = "IDLE"
+            store.stage_title = "STANDBY (机队空闲待命)"
+            store.battle_state = "IDLE"
             store.add_log("ALERT", f"🛑 [全局紧急停机] 所有正在执行的作战与推图任务已立即截停！(已中止 {count} 个运行中工单)")
         self._send_json({"status": "ABORTED", "stopped_count": count})
 

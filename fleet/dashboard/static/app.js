@@ -199,10 +199,17 @@ function updateHUD(data) {
   const tel = data.telemetry || {};
   const stage = data.stage || {};
 
-  // Mission
+  // Mission Indicator
   const stageTitleEl = document.getElementById("stageTitle");
-  if (stageTitleEl && stage.title) {
-    stageTitleEl.textContent = `${stage.id} ${stage.title}`;
+  if (stageTitleEl) {
+    if (stage.id && stage.id !== "IDLE" && stage.title && !stage.title.includes("STANDBY")) {
+      const cleanTitle = stage.title.replace(new RegExp(`^\\[?${stage.id}\\]?\\s*`), "");
+      stageTitleEl.textContent = `[${stage.id}] ${cleanTitle}`;
+      stageTitleEl.style.color = "var(--accent-cyan)";
+    } else {
+      stageTitleEl.textContent = "STANDBY (机队空闲待命)";
+      stageTitleEl.style.color = "var(--accent-gold)";
+    }
   }
 
   // DP
@@ -782,6 +789,11 @@ async function triggerEmergencyStop() {
     if (res.ok) {
       const data = await res.json();
       console.log("[ASTA] Stop acknowledged successfully:", data);
+      const stageTitleEl = document.getElementById("stageTitle");
+      if (stageTitleEl) {
+        stageTitleEl.textContent = "STANDBY (机队空闲待命)";
+        stageTitleEl.style.color = "var(--accent-gold)";
+      }
       fetchMissions();
       fetchTelemetryFallback();
     }
@@ -1171,6 +1183,11 @@ async function autoDispatchBestPlan() {
       fetchTelemetryFallback();
       if (statusEl) {
         statusEl.innerHTML = `✅ [作业派发成功] 关卡 <strong>[${stage}]</strong> 已绑定工单 <strong>[${data.mission_id}]</strong>，作业: <em>${data.plan_title}</em> (已排入待办)`;
+      }
+      const stageTitleEl = document.getElementById("stageTitle");
+      if (stageTitleEl) {
+        stageTitleEl.textContent = `[${stage}] 自动化作战中`;
+        stageTitleEl.style.color = "var(--accent-cyan)";
       }
     } else {
       if (statusEl) statusEl.innerHTML = `❌ 智能优选下发失败，请查看右侧控制台日志。`;
