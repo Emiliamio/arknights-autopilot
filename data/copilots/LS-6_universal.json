@@ -1,0 +1,100 @@
+{
+  "stage_name": "wk_melee_6",
+  "minimum_required": "v4.0.0",
+  "doc": {
+    "title": "LS-6 战术演习 EXP录像全自动挂机方案 (ASTA Universal)",
+    "details": "开局桃金娘/德克萨斯爆费，棘刺高台下暖机至强输出，塞雷娅/银灰兜底清场，自适应干员平替。"
+  },
+  "opers": [
+    {
+      "name": "桃金娘",
+      "skill": 1,
+      "skill_usage": 0
+    },
+    {
+      "name": "德克萨斯",
+      "skill": 1,
+      "skill_usage": 0
+    },
+    {
+      "name": "棘刺",
+      "skill": 3,
+      "skill_usage": 1
+    },
+    {
+      "name": "银灰",
+      "skill": 3,
+      "skill_usage": 0
+    },
+    {
+      "name": "塞雷娅",
+      "skill": 1,
+      "skill_usage": 0
+    },
+    {
+      "name": "闪灵",
+      "skill": 2,
+      "skill_usage": 0
+    }
+  ],
+  "actions": [
+    {
+      "type": "二倍速"
+    },
+    {
+      "type": "部署",
+      "name": "桃金娘",
+      "location": [5, 2],
+      "direction": "左",
+      "costs": 9
+    },
+    {
+      "type": "技能",
+      "name": "桃金娘",
+      "costs": 9
+    },
+    {
+      "type": "部署",
+      "name": "德克萨斯",
+      "location": [5, 3],
+      "direction": "上",
+      "costs": 12
+    },
+    {
+      "type": "部署",
+      "name": "棘刺",
+      "location": [4, 2],
+      "direction": "上",
+      "costs": 20
+    },
+    {
+      "type": "部署",
+      "name": "塞雷娅",
+      "location": [6, 3],
+      "direction": "上",
+      "costs": 22
+    },
+    {
+      "type": "技能",
+      "name": "棘刺",
+      "kills": 10
+    },
+    {
+      "type": "部署",
+      "name": "银灰",
+      "location": [4, 3],
+      "direction": "上",
+      "costs": 20
+    },
+    {
+      "type": "技能",
+      "name": "棘刺",
+      "kills": 20
+    },
+    {
+      "type": "技能",
+      "name": "银灰",
+      "kills": 30
+    }
+  ]
+}

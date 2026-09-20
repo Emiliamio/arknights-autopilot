@@ -1,0 +1,98 @@
+{
+  "stage_name": "wk_armor_6",
+  "minimum_required": "v4.0.0",
+  "doc": {
+    "title": "CE-6 货物运送 龙门币全自动挂机方案 (ASTA Universal)",
+    "details": "开局桃金娘爆费，风笛击杀回费快速启动，煌暖机站场，塞雷娅阻挡回血，小羊火山清重甲。"
+  },
+  "opers": [
+    {
+      "name": "桃金娘",
+      "skill": 1,
+      "skill_usage": 0
+    },
+    {
+      "name": "风笛",
+      "skill": 2,
+      "skill_usage": 0
+    },
+    {
+      "name": "煌",
+      "skill": 2,
+      "skill_usage": 1
+    },
+    {
+      "name": "塞雷娅",
+      "skill": 1,
+      "skill_usage": 0
+    },
+    {
+      "name": "艾雅法拉",
+      "skill": 3,
+      "skill_usage": 0
+    },
+    {
+      "name": "砾",
+      "skill": 1,
+      "skill_usage": 0
+    }
+  ],
+  "actions": [
+    {
+      "type": "二倍速"
+    },
+    {
+      "type": "部署",
+      "name": "桃金娘",
+      "location": [6, 3],
+      "direction": "下",
+      "costs": 9
+    },
+    {
+      "type": "技能",
+      "name": "桃金娘",
+      "costs": 9
+    },
+    {
+      "type": "部署",
+      "name": "风笛",
+      "location": [7, 2],
+      "direction": "左",
+      "costs": 13
+    },
+    {
+      "type": "部署",
+      "name": "煌",
+      "location": [6, 2],
+      "direction": "下",
+      "costs": 24
+    },
+    {
+      "type": "部署",
+      "name": "塞雷娅",
+      "location": [6, 3],
+      "direction": "左",
+      "costs": 20
+    },
+    {
+      "type": "部署",
+      "name": "艾雅法拉",
+      "location": [5, 2],
+      "direction": "右",
+      "costs": 21
+    },
+    {
+      "type": "技能",
+      "name": "艾雅法拉",
+      "kills": 18
+    },
+    {
+      "type": "部署",
+      "name": "砾",
+      "location": [7, 1],
+      "direction": "下",
+      "costs": 8,
+      "kills": 25
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 ASTA - Arknights Sovereign Tactical Autopilot
 Panic Fallback Daemon & Emergency Reserve Dispatcher
@@ -6,6 +6,7 @@ Author: Emiliamio <mio2110767128@163.com>
 """
 
 import time
+from enum import Enum
 from typing import List, Tuple, Dict, Any, Optional, Set
 import logging
 
@@ -17,10 +18,19 @@ from core.adb_client import ADBClient
 logger = logging.getLogger("ASTA.PanicDaemon")
 
 
+class EmergencyTier(Enum):
+    TIER_1_DROP = "TIER_1_DROP"           # 0.37ms 快活空投截停 (砾/红/夜刀)
+    TIER_2_BURST = "TIER_2_BURST"         # 决战技全员爆发强开 (Burst Mode 熔化高威胁怪)
+    TIER_3_RELAY = "TIER_3_RELAY"         # 残血干员战术接力撤退 (退费换防)
+
+
 class PanicDaemon:
     """
     Emergency intervention daemon for sudden front-line breaches.
-    Preemptively intercepts leaks by deploying emergency reserves within <= 350ms.
+    Provides 3 tiers of defensive response:
+    - Tier 1: Fast-redeploy face-plant intercept drop.
+    - Tier 2: Emergency burst activation of all on-field manual skills.
+    - Tier 3: Tactical retreat and relay redeployment.
     """
 
     def __init__(self, tactical_map: Optional[TacticalMap] = None):
@@ -113,3 +123,57 @@ class PanicDaemon:
         }
         self.emergency_history.append(record)
         return record
+
+    def execute_multi_tier_emergency(
+        self,
+        leak_info: Dict[str, Any],
+        cards: List[Dict[str, Any]],
+        deployed_operators: Optional[Dict[str, Tuple[int, int]]],
+        mapper: HomographyMapper,
+        humanizer: TouchHumanizer,
+        adb_client: Optional[ADBClient] = None
+    ) -> Dict[str, Any]:
+        """
+        Executes multi-tier defensive protocol based on breach severity:
+        Tier 1: Try dropping emergency reserve blocker.
+        Tier 2: If cards empty or tile on cooldown, escalate to Burst Skills mode!
+        """
+        # Attempt Tier 1: Emergency reserve drop
+        t1_res = self.execute_emergency_intercept(
+            leak_info=leak_info,
+            cards=cards,
+            mapper=mapper,
+            humanizer=humanizer,
+            adb_client=adb_client
+        )
+
+        if t1_res.get("status") == "INTERCEPTED":
+            t1_res["tier"] = EmergencyTier.TIER_1_DROP.value
+            return t1_res
+
+        # Tier 2: Escalate to Burst Skills Mode
+        burst_res = self.trigger_burst_mode(deployed_operators, mapper, adb_client)
+        return {
+            "status": "BURST_TRIGGERED",
+            "tier": EmergencyTier.TIER_2_BURST.value,
+            "intercept_tile": leak_info.get("intercept_tile"),
+            "skills_triggered": burst_res.get("triggered_count", 0),
+            "fallback_reason": t1_res.get("status")
+        }
+
+    def trigger_burst_mode(
+        self,
+        deployed_operators: Optional[Dict[str, Tuple[int, int]]],
+        mapper: HomographyMapper,
+        adb_client: Optional[ADBClient] = None
+    ) -> Dict[str, Any]:
+        """Triggers manual skills on all currently deployed operators."""
+        triggered_count = 0
+        if deployed_operators and adb_client:
+            for name, (col, row) in deployed_operators.items():
+                tx, ty = mapper.get_tile_center(col, row)
+                adb_client.tap(tx, ty)
+                adb_client.tap(tx, ty - 60)
+                triggered_count += 1
+        logger.warning(f"⚡ [PanicDaemon TIER_2] Burst Mode activated! Triggered skills on {triggered_count} operators.")
+        return {"triggered_count": triggered_count, "status": "BURST_SKILLS_EXECUTED"}

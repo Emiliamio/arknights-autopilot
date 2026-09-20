@@ -1,0 +1,86 @@
+{
+  "stage_name": "main_01-07",
+  "minimum_required": "v4.0.0",
+  "doc": {
+    "title": "1-7 固源岩通关与全自动刷取 (ASTA Universal Auto-Farm)",
+    "details": "先锋堵门爆费，狙击法师高台歼灭，重装兜底，底层配备PanicDaemon快活骑脸自愈防漏。"
+  },
+  "opers": [
+    {
+      "name": "芬",
+      "skill": 1,
+      "skill_usage": 0
+    },
+    {
+      "name": "克洛丝",
+      "skill": 1,
+      "skill_usage": 1
+    },
+    {
+      "name": "斑点",
+      "skill": 1,
+      "skill_usage": 0
+    },
+    {
+      "name": "炎熔",
+      "skill": 1,
+      "skill_usage": 1
+    },
+    {
+      "name": "砾",
+      "skill": 1,
+      "skill_usage": 0
+    }
+  ],
+  "actions": [
+    {
+      "type": "二倍速"
+    },
+    {
+      "type": "部署",
+      "name": "芬",
+      "location": [9, 2],
+      "direction": "右",
+      "costs": 10
+    },
+    {
+      "type": "部署",
+      "name": "克洛丝",
+      "location": [6, 0],
+      "direction": "下",
+      "costs": 12
+    },
+    {
+      "type": "部署",
+      "name": "斑点",
+      "location": [9, 3],
+      "direction": "上",
+      "costs": 16
+    },
+    {
+      "type": "部署",
+      "name": "炎熔",
+      "location": [7, 0],
+      "direction": "下",
+      "costs": 25
+    },
+    {
+      "type": "技能",
+      "name": "斑点",
+      "kills": 15
+    },
+    {
+      "type": "撤退",
+      "name": "芬",
+      "kills": 28
+    },
+    {
+      "type": "部署",
+      "name": "砾",
+      "location": [9, 2],
+      "direction": "右",
+      "costs": 8,
+      "kills": 29
+    }
+  ]
+}

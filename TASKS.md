@@ -2,7 +2,7 @@
 
 ## 📌 当前状态总览
 - 状态：开发中阶段性交接 (In-Flight Handover)
-- 单元测试：`102 / 102` (100% 绿色通过，96 项即刻通过，6 项实机 ADB 测试在模拟器离线时优雅跳过)
+- 单元测试：`123 / 123` (100% 绿色通过，117 项即刻通过，6 项实机 ADB 测试在模拟器离线时优雅跳过)
 - 架构分层：`core` (底层), `tactical` (战术大脑), `fleet` (多开调度)
 
 ---
@@ -19,13 +19,16 @@
 - [x] **Tactical 战术中枢**
   - [x] 通用实战驾驶主脑端到端对战主循环 (`tactical/universal_combat_pilot.py`)
   - [x] 萨卡兹/水月/萨米肉鸽深度博弈与干员招募引擎 (`tactical/roguelike_brain.py`)
-  - [x] 漏怪毫秒级抢占式救场看门狗 (`tactical/panic_daemon.py`)
+  - [x] 漏怪毫秒级抢占式救场看门狗与三级熔断防御 (`tactical/panic_daemon.py`)
   - [x] 战局威胁等级监护 (`tactical/threat_monitor.py`)
   - [x] 8大职业与干员特征原型库 (`tactical/operator_archetypes.py`)
   - [x] 动态阵容搭配评分器 (`tactical/squad_synthesizer.py`)
   - [x] 内置关卡拓扑与阻挡数据库 (`tactical/stage_database.py`)
   - [x] 全域终端与关卡跳转导航机 (`tactical/global_navigator.py`)
-  - [x] MAA 作业协议双轨适配器 (`tactical/copilot_adapter.py`)
+  - [x] MAA 作业协议双轨适配器与双轨仲裁大脑 (`tactical/copilot_adapter.py`, `tactical/copilot_brain.py`)
+  - [x] 缺人自动平替与费用自适应引擎 (`tactical/copilot_fuzzy_matcher.py`)
+  - [x] 击杀数/费用解同步死锁断路器 (DesyncDeadlockBreaker 软条件仲裁)
+  - [x] 高频刷图方案库 (1-7, LS-6, CE-6) 与全套作业格式校验
 - [x] **Fleet 集群调度**
   - [x] 多账号 SQLite WAL 互斥检出 (`fleet/account_manager.py`)
   - [x] 任务队列与理智排班器 (`fleet/mission_manager.py`)

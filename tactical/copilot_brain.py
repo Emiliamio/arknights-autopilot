@@ -32,10 +32,22 @@ class CopilotBrain:
     def __init__(
         self,
         tactical_map: TacticalMap,
-        copilot_plan: CopilotPlan
+        copilot_plan: CopilotPlan,
+        owned_roster: Optional[List[str]] = None
     ):
         self.map = tactical_map
-        self.plan = copilot_plan
+        self.original_plan = copilot_plan
+        self.owned_roster = owned_roster
+        self.substitutions: Dict[str, str] = {}
+
+        if owned_roster is not None:
+            from tactical.copilot_fuzzy_matcher import CopilotFuzzyMatcher
+            matcher = CopilotFuzzyMatcher()
+            self.plan, sub_details = matcher.adapt_plan(copilot_plan, owned_roster)
+            self.substitutions = {k: v["substitute"] for k, v in sub_details.items()}
+        else:
+            self.plan = copilot_plan
+
         self.current_action_idx = 0
 
         self.threat_monitor = ThreatMonitor(tactical_map)
@@ -50,6 +62,7 @@ class CopilotBrain:
         self.speed_2x_ensured: bool = False
 
         self.action_start_time: float = time.time()
+        self.soft_timeout_sec: float = 8.0
         self.watchdog_timeout_sec: float = 25.0
         self.emergency_interventions_count: int = 0
 
@@ -83,6 +96,41 @@ class CopilotBrain:
                     return c
 
         return ready_cards[0]
+
+    def evaluate_action_readiness(
+        self,
+        action: CopilotAction,
+        current_dp: int,
+        kills: int,
+        threat_lvl: ThreatLevel,
+        elapsed_sec: float
+    ) -> Tuple[bool, str]:
+        """
+        Evaluates whether an action should be executed under the Desync Deadlock Breaker protocol:
+        Returns:
+            (is_ready, reason):
+            - (True, "NORMAL"): Both DP and Kill requirements satisfied.
+            - (True, "SOFT_DP_SURPLUS"): Kill condition soft-bypassed due to significant DP surplus & wait time.
+            - (True, "THREAT_URGENCY"): Kill condition soft-bypassed due to elevated threat level on map.
+            - (False, "WAITING_DP"): Need more DP.
+            - (False, "WAITING_KILLS"): DP ready but waiting for required kill count.
+        """
+        dp_satisfied = (current_dp >= action.min_costs)
+        kills_satisfied = (kills >= action.min_kills)
+
+        if dp_satisfied and kills_satisfied:
+            return True, "NORMAL"
+
+        if dp_satisfied and not kills_satisfied:
+            # Threat pressure override: enemy leak danger requires immediate deployment/skill
+            if threat_lvl in (ThreatLevel.ALERT, ThreatLevel.PANIC_LEAK):
+                return True, "THREAT_URGENCY"
+            # Soft DP surplus override: wave stall where DP overflows while waiting for 1 kill
+            if elapsed_sec >= self.soft_timeout_sec and current_dp >= (action.min_costs + 12):
+                return True, "SOFT_DP_SURPLUS"
+            return False, "WAITING_KILLS"
+
+        return False, "WAITING_DP"
 
     def tick(
         self,
@@ -134,10 +182,11 @@ class CopilotBrain:
         )
 
         if threat_lvl == ThreatLevel.PANIC_LEAK and leak_info:
-            # PREEMPTIVE HIJACK: Emergency reserve intercept overrules Copilot!
-            intercept_res = self.panic_daemon.execute_emergency_intercept(
+            # PREEMPTIVE HIJACK: Multi-tier emergency reserve intercept overrules Copilot!
+            intercept_res = self.panic_daemon.execute_multi_tier_emergency(
                 leak_info=leak_info,
                 cards=cards,
+                deployed_operators=self.deployed_operators,
                 mapper=mapper,
                 humanizer=humanizer,
                 adb_client=adb_client
@@ -159,18 +208,34 @@ class CopilotBrain:
         # 4. PRIORITY 2: MAIN TRACK COPILOT EXECUTION
         action = self.get_current_action()
         if action:
-            dp_satisfied = (self.last_dp >= action.min_costs)
-            kills_satisfied = (self.kill_count[0] >= action.min_kills)
-
             now = time.time()
-            if (now - self.action_start_time) > self.watchdog_timeout_sec and not (dp_satisfied and kills_satisfied):
-                logger.warning(f"Action #{action.step_index} timed out ({self.watchdog_timeout_sec}s). Force bypassing...")
+            elapsed_sec = now - self.action_start_time
+            curr_kills = self.kill_count[0] if self.kill_count[0] is not None else 0
+
+            is_ready, ready_reason = self.evaluate_action_readiness(
+                action=action,
+                current_dp=self.last_dp,
+                kills=curr_kills,
+                threat_lvl=threat_lvl,
+                elapsed_sec=elapsed_sec
+            )
+
+            if elapsed_sec > self.watchdog_timeout_sec and not is_ready:
+                logger.warning(
+                    f"Action #{action.step_index} ({action.action_type.value} {action.name}) "
+                    f"timed out after {elapsed_sec:.1f}s. Watchdog force-bypassing..."
+                )
                 action.status = "SKIPPED_TIMEOUT"
                 self.current_action_idx += 1
                 self.action_start_time = now
                 action_taken = "WATCHDOG_BYPASS"
-                action_details = {"skipped_action": action.to_dict()}
-            elif dp_satisfied and kills_satisfied:
+                action_details = {"skipped_action": action.to_dict(), "reason": "TIMEOUT_WATCHDOG"}
+            elif is_ready:
+                if ready_reason != "NORMAL":
+                    logger.info(
+                        f"⚡ [DesyncBreaker] Action #{action.step_index} triggered via {ready_reason} "
+                        f"(DP={self.last_dp}/{action.min_costs}, Kills={curr_kills}/{action.min_kills})"
+                    )
                 if action.action_type == CopilotActionType.SPEED_UP:
                     if not self.speed_2x_ensured:
                         if not vision_engine.is_2x_speed_active(frame):

@@ -108,11 +108,24 @@ OPERATOR_DATABASE: Dict[str, Dict[str, Any]] = {
 
 def lookup_operator_traits(name: str) -> Dict[str, Any]:
     """Look up operator specs or return generalized fallback traits."""
+    # 1. Exact match takes strict priority
+    if name in OPERATOR_DATABASE:
+        t = dict(OPERATOR_DATABASE[name])
+        t["resolved_name"] = name
+        return t
+
+    # 2. Substring matching (prefer longest matched name, e.g. 纯烬艾雅法拉 > 艾雅法拉)
+    matches = []
     for known_name, traits in OPERATOR_DATABASE.items():
         if known_name in name or name in known_name:
-            t = dict(traits)
-            t["resolved_name"] = known_name
-            return t
+            matches.append((len(known_name), known_name, traits))
+
+    if matches:
+        matches.sort(key=lambda x: -x[0])
+        best = matches[0]
+        t = dict(best[2])
+        t["resolved_name"] = best[1]
+        return t
 
     # Default fallback heuristics based on generic role guess
     return {
