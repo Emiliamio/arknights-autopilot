@@ -3,7 +3,7 @@
 > **交接目标环境**：Google Antigravity IDE (反重力智能体)  
 > **唯一作者与架构师**：`Emiliamio <mio2110767128@163.com>`  
 > **基准日期**：2026-09-20  
-> **当前工程健康度**：`131 / 131` 单元测试全部通过 (`pytest tests/`，125 项即刻通过，6 项实机 ADB 在模拟器离线时优雅跳过)
+> **当前工程健康度**：`pytest tests/` **132 项**全部通过（依赖实机 ADB 的用例在模拟器离线时优雅跳过；数量随开发变化，以实跑为准）
 
 ---
 
@@ -51,7 +51,7 @@ D:\arknights-autopilot\
 │   ├── maps/                   # 关卡地图拓扑定义 (YAML)
 │   ├── copilots/               # 作业协议文件与云端缓存 (JSON)
 │   └── rosters/                # 玩家练度干员库 (JSON)
-├── tests/                      # 自动化测试套件 (131/131 全绿通过)
+├── tests/                      # 自动化测试套件 (132 项全绿，数量以实跑为准)
 ├── config.yaml                 # 运行时全局配置文件
 └── main.py                     # 统一 CLI 启动入口
 ```
@@ -60,7 +60,7 @@ D:\arknights-autopilot\
 
 ## 📊 二、当前已完成与验证能力清单 (Completed & Verified)
 
-以下模块已通过 `pytest tests/` **81 项严格单测验证**，均处于就绪状态：
+以下模块已通过 `pytest tests/` 验证（当前 132 项），均处于就绪状态：
 - ✅ **ADB 与拟人物理输入**：`tests/test_adb_client.py`、`test_touch_humanizer.py` (高斯偏移、贝塞尔曲率、多端口兼容)；
 - ✅ **透视单应性变换**：`tests/test_homography_mapper.py` (双向投影自洽、网格瓦片反查误差 < 0.05px)；
 - ✅ **视觉模板与 OCR**：`tests/test_vision_engine.py` (色彩容差、特征匹配)；
@@ -135,4 +135,4 @@ D:\arknights-autopilot\
 
 在反重力 (Google Antigravity IDE) 中打开本工作区后，直接发送以下指令即可无缝继续研发：
 
-> `MC。请读取 HANDOVER.md 和 TASKS.md，全面接管 ASTA (arknights-autopilot) 未完成的项目研发。当前 81 项单元测试已 100% 通过。请先汇报当前断点状态，然后优先推进第一项断点任务：实机端到端对战主循环集成 (tactical/universal_combat_pilot.py 与 core/adb_client.py 联调)。`
+> `MC。请读取 HANDOVER.md 和 TASKS.md，全面接管 ASTA (arknights-autopilot) 未完成的项目研发。当前 pytest tests/ 132 项全部通过。请先汇报当前断点状态，然后优先推进第一项断点任务：实机端到端对战主循环集成 (tactical/universal_combat_pilot.py 与 core/adb_client.py 联调)。`

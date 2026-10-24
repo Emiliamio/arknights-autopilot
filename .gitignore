@@ -47,3 +47,6 @@ htmlcov/
 *.log
 Thumbs.db
 Desktop.ini
+
+# 内部 AI 任务书，不进公开仓库
+docs/handover/

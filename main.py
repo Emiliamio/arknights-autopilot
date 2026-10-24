@@ -90,7 +90,7 @@ def cmd_probe(args):
 
 
 def cmd_test(args):
-    print("[*] Running Industrial Pytest Quality Gate (Target: 100% Pass)...\n")
+    print("[*] Running Pytest Quality Gate (require: all green)...\n")
     subprocess.run([sys.executable, "-m", "pytest", "tests/", "-v"])
 
 
